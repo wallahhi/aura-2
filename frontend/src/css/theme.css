@@ -1,0 +1,206 @@
+/* SoundSense Design System — Minimalist Light Theme (Zero AI Slop) */
+:root {
+  /* Surfaces & Canvas */
+  --bg-canvas: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F4F4F5;
+  --bg-hover: #ECECEE;
+  
+  /* Borders & Dividers */
+  --border-subtle: #E4E4E7;
+  --border-strong: #D1D5DB;
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-primary: #111827;     /* Deep charcoal */
+  --text-secondary: #6B7280;   /* Muted label */
+  --text-tertiary: #9CA3AF;
+  
+  /* Semantic Status — High Contrast, Daytime-Tuned */
+  --status-safe-bg: #ECFDF5;
+  --status-safe-text: #065F46;
+  --status-safe-border: #A7F3D0;
+  --status-safe-dot: #10B981;
+
+  --status-aware-bg: #FFFBEB;
+  --status-aware-text: #92400E;
+  --status-aware-border: #FDE68A;
+  --status-aware-dot: #F59E0B;
+
+  --status-caution-bg: #FFF7ED;
+  --status-caution-text: #9A3412;
+  --status-caution-border: #FED7AA;
+  --status-caution-dot: #F97316;
+
+  --status-danger-bg: #FEF2F2;
+  --status-danger-text: #991B1B;
+  --status-danger-border: #FECACA;
+  --status-danger-dot: #EF4444;
+
+  /* Spacing & Radii */
+  --radius-pill: 9999px;
+  --radius-card: 16px;
+  --radius-input: 8px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: #F0F2F5; /* Crisp subtle backdrop on desktop */
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 0;
+}
+
+/* Standalone Mobile Shell (Ergonomic 390x844 iPhone/Android viewport) */
+#app-container {
+  width: 100%;
+  max-width: 420px;
+  min-height: 844px;
+  background-color: var(--bg-canvas);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 0;
+    background-color: var(--bg-canvas);
+  }
+
+  #app-container {
+    max-width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    margin-bottom: 0;
+  }
+}
+
+/* Common Pill Components */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+/* Status Dot Indicator */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-tertiary);
+  transition: background-color 0.25s ease;
+}
+
+.status-dot.active {
+  background-color: #10B981;
+}
+
+.status-dot.escalated {
+  background-color: #EF4444;
+}
+
+/* Button & Action Reset */
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.btn-secondary {
+  padding: 6px 12px;
+  border-radius: var(--radius-input);
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Slide-up Modals & Sheets */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bottom-sheet {
+  width: 100%;
+  background-color: var(--bg-surface);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 20px;
+  border-top: 1px solid var(--border-subtle);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-overlay.open .bottom-sheet {
+  transform: translateY(0);
+}
+
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sheet-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sheet-close {
+  font-size: 20px;
+  color: var(--text-secondary);
+  padding: 4px;
+}

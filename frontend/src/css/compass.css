@@ -1,0 +1,120 @@
+/* 360° Geometric Directional Compass (Clean Light Theme) */
+.compass-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.compass-container {
+  width: 220px;
+  height: 220px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Outer Geometric Dial */
+.compass-dial {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Inner Subtle Ring */
+.compass-inner-ring {
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-subtle);
+  position: absolute;
+}
+
+/* Center Pivot */
+.compass-pivot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--text-primary);
+  z-index: 5;
+}
+
+/* Cardinal Markers */
+.cardinal-marker {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.marker-n { top: 10px; }
+.marker-s { bottom: 10px; }
+.marker-e { right: 12px; }
+.marker-w { left: 12px; }
+
+/* Sharp Directional Needle */
+.compass-needle {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  transform-origin: 50% 50%;
+}
+
+.needle-pointer {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 22px solid var(--text-primary);
+}
+
+/* Direction Sound Badge Pill */
+.sound-badge-container {
+  margin-top: 18px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sound-badge {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s ease;
+}
+
+.sound-badge-zone {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+}

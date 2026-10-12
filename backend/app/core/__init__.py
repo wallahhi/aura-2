@@ -1,0 +1,1 @@
+# SoundSense Core Module

@@ -1,0 +1,83 @@
+/* Bottom Live Conversation Feed (Clean Borderless Typography) */
+.transcript-section {
+  flex: 1 0 auto;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 20px 20px 20px;
+  position: relative;
+  background-color: var(--bg-canvas);
+}
+
+.transcript-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.transcript-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.transcript-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.transcript-feed {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Top soft gradient mask for continuous reading comfort */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 16px, black 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 16px, black 100%);
+}
+
+.transcript-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.transcript-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.speaker-tag {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.transcript-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  font-weight: 400;
+  word-break: break-word;
+}
+
+.transcript-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 24px;
+}
