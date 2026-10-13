@@ -15,7 +15,7 @@ from app.config import settings
 from app.services.audio_preprocessor import AudioPreprocessor
 from app.services.yamnet_service import YAMNetService
 from app.services.whisper_service import WhisperService
-from app.core.gcc_phat import compute_gcc_phat, simulate_stereo_delay
+from app.core.gcc_phat import compute_gcc_phat, simulate_stereo_delay, detect_rear_hemisphere
 from app.core.danger_service import DangerEngine, DangerState
 from app.core.sound_ontology import get_sound_info
 from app.api.websocket.protocol import (
@@ -138,13 +138,20 @@ class PipelineOrchestrator:
             return events_to_emit
 
         # Compute GCC-PHAT spatial direction across channels
+        channel_diff = float(np.max(np.abs(left_hp - right_hp))) if right_hp is not None else 0.0
+        is_distinct = channel_diff > 1e-4
+        is_rear = detect_rear_hemisphere(left_hp, right_hp, fs=fs) if is_distinct else False
+
         tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
             left_hp,
             right_hp,
             fs=fs,
             d=self.mic_spacing_m,
-            c=self.speed_of_sound
+            c=self.speed_of_sound,
+            is_rear=is_rear
         )
+        if not is_distinct:
+            zone = "OMNI"
 
         # === BRANCH A: HUMAN SPEECH ===
         if is_speech:
@@ -184,13 +191,20 @@ class PipelineOrchestrator:
 
         # === BRANCH B: ENVIRONMENTAL SOUNDS & SPATIAL LOCALIZATION ===
         # 1. GCC-PHAT TDOA on Left & Right channels
+        channel_diff = float(np.max(np.abs(left_hp - right_hp))) if right_hp is not None else 0.0
+        is_distinct = channel_diff > 1e-4
+        is_rear = detect_rear_hemisphere(left_hp, right_hp, fs=fs) if is_distinct else False
+
         tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
             left_hp,
             right_hp,
             fs=fs,
             d=self.mic_spacing_m,
-            c=self.speed_of_sound
+            c=self.speed_of_sound,
+            is_rear=is_rear
         )
+        if not is_distinct:
+            zone = "OMNI"
 
         # 2. Danger Assessment with Cooldown & Hysteresis
         danger_state, is_new_alert = self.danger_engine.evaluate(top_class, confidence, db_spl)
@@ -233,7 +247,8 @@ class PipelineOrchestrator:
         delay_samples: int,
         db_spl: float,
         confidence: float,
-        text: Optional[str] = None
+        text: Optional[str] = None,
+        is_rear: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Simulator endpoint: generates synthetic delay and processes through the pipeline.
@@ -268,7 +283,7 @@ class PipelineOrchestrator:
 
         # Compute GCC-PHAT on synthetic stereo
         tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
-            left, right, fs=fs, d=self.mic_spacing_m, c=self.speed_of_sound
+            left, right, fs=fs, d=self.mic_spacing_m, c=self.speed_of_sound, is_rear=is_rear
         )
 
         # Evaluate Danger Engine

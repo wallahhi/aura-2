@@ -106,8 +106,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initSimulatorBar(
     simBarContainer,
     // onTriggerSynthetic
-    (soundClass, delaySamples, dbSpl, confidence, text) => {
-      wsClient.sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text);
+    (soundClass, delaySamples, dbSpl, confidence, text, isRear = false) => {
+      wsClient.sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text, isRear);
     },
     // onToggleMic
     async (btnEl) => {

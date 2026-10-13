@@ -59,6 +59,15 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
           </div>
         </div>
 
+        <!-- Acoustic Hemisphere Selection (Front vs Behind) -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">Acoustic Hemisphere</span>
+          <div style="display: flex; gap: 6px;">
+            <button id="btn-hemi-front" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; font-weight: 600; background: var(--text-primary); color: var(--bg-surface);">Front (Ahead)</button>
+            <button id="btn-hemi-rear" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; font-weight: 600;">Back (Behind)</button>
+          </div>
+        </div>
+
         <!-- Presets Row -->
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
           <button id="btn-preset-horn" class="btn-secondary" style="text-align: left; padding: 8px;">
@@ -69,6 +78,16 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
           <button id="btn-preset-siren" class="btn-secondary" style="text-align: left; padding: 8px;">
             <div style="font-weight: 600; font-size: 12px; color: var(--status-danger-text);">Emergency Siren</div>
             <div style="font-size: 10px; color: var(--text-secondary);">West (Left · NW)</div>
+          </button>
+
+          <button id="btn-preset-rear-horn" class="btn-secondary" style="text-align: left; padding: 8px;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--status-danger-text);">Vehicle Behind</div>
+            <div style="font-size: 10px; color: var(--text-secondary);">Back (Behind · 270° S)</div>
+          </button>
+
+          <button id="btn-preset-rear-siren" class="btn-secondary" style="text-align: left; padding: 8px;">
+            <div style="font-weight: 600; font-size: 12px;">Siren Behind-Left</div>
+            <div style="font-size: 10px; color: var(--text-secondary);">Rear-West (SW · 225°)</div>
           </button>
 
           <button id="btn-preset-speech" class="btn-secondary" style="text-align: left; padding: 8px;">
@@ -94,12 +113,34 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
   const delaySlider = containerEl.querySelector("#sim-delay-slider");
   const displayDelay = containerEl.querySelector("#display-delay-samples");
 
+  const btnHemiFront = containerEl.querySelector("#btn-hemi-front");
+  const btnHemiRear = containerEl.querySelector("#btn-hemi-rear");
+
   const btnHorn = containerEl.querySelector("#btn-preset-horn");
   const btnSiren = containerEl.querySelector("#btn-preset-siren");
+  const btnRearHorn = containerEl.querySelector("#btn-preset-rear-horn");
+  const btnRearSiren = containerEl.querySelector("#btn-preset-rear-siren");
   const btnSpeech = containerEl.querySelector("#btn-preset-speech");
   const btnSos = containerEl.querySelector("#btn-preset-sos");
 
   let isCollapsed = false;
+  let isRearActive = false;
+
+  btnHemiFront.addEventListener("click", () => {
+    isRearActive = false;
+    btnHemiFront.style.background = "var(--text-primary)";
+    btnHemiFront.style.color = "var(--bg-surface)";
+    btnHemiRear.style.background = "var(--bg-surface)";
+    btnHemiRear.style.color = "var(--text-primary)";
+  });
+
+  btnHemiRear.addEventListener("click", () => {
+    isRearActive = true;
+    btnHemiRear.style.background = "var(--text-primary)";
+    btnHemiRear.style.color = "var(--bg-surface)";
+    btnHemiFront.style.background = "var(--bg-surface)";
+    btnHemiFront.style.color = "var(--text-primary)";
+  });
 
   drawerToggle.addEventListener("click", () => {
     isCollapsed = !isCollapsed;
@@ -110,9 +151,9 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
   delaySlider.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
     let label = `${val} samples`;
-    if (val === 0) label = "0 samples (Center · N)";
-    else if (val > 0) label = `+${val} samples (Left · W/NW)`;
-    else label = `${val} samples (Right · E/NE)`;
+    if (val === 0) label = isRearActive ? "0 samples (Behind · S)" : "0 samples (Ahead · N)";
+    else if (val > 0) label = isRearActive ? `+${val} samples (Back-Left · SW)` : `+${val} samples (Front-Left · NW)`;
+    else label = isRearActive ? `${val} samples (Back-Right · SE)` : `${val} samples (Front-Right · NE)`;
     displayDelay.textContent = label;
   });
 
@@ -122,12 +163,20 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
 
   btnHorn.addEventListener("click", () => {
     const delay = parseInt(delaySlider.value, 10) || -10;
-    onTriggerSynthetic("Car horn", delay, 85.0, 0.88, null);
+    onTriggerSynthetic("Car horn", delay, 85.0, 0.88, null, isRearActive);
   });
 
   btnSiren.addEventListener("click", () => {
     const delay = parseInt(delaySlider.value, 10) || 12;
-    onTriggerSynthetic("Siren", delay, 92.0, 0.94, null);
+    onTriggerSynthetic("Siren", delay, 92.0, 0.94, null, isRearActive);
+  });
+
+  btnRearHorn.addEventListener("click", () => {
+    onTriggerSynthetic("Car horn", 0, 89.0, 0.92, null, true);
+  });
+
+  btnRearSiren.addEventListener("click", () => {
+    onTriggerSynthetic("Siren", 10, 94.0, 0.96, null, true);
   });
 
   btnSpeech.addEventListener("click", () => {
@@ -137,10 +186,10 @@ export function initSimulatorBar(containerEl, onTriggerSynthetic, onToggleMic) {
       "Excuse me, do you know which way to the central transit station?"
     ];
     const prompt = prompts[Math.floor(Math.random() * prompts.length)];
-    onTriggerSynthetic("Speech", 0, 72.0, 0.95, prompt);
+    onTriggerSynthetic("Speech", 0, 72.0, 0.95, prompt, isRearActive);
   });
 
   btnSos.addEventListener("click", () => {
-    onTriggerSynthetic("Siren", 14, 98.0, 0.98, null);
+    onTriggerSynthetic("Siren", 14, 98.0, 0.98, null, isRearActive);
   });
 }

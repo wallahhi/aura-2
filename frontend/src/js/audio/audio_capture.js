@@ -30,16 +30,43 @@ export class AudioCaptureService {
     if (this.isCapturing) return;
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          "Microphone access requires a Secure Context (HTTPS or localhost). " +
+          "When accessing from your phone, either use an HTTPS tunnel (e.g. cloudflared/localtunnel) " +
+          "or on Android Chrome enable chrome://flags/#unsafely-treat-insecure-origin-as-secure."
+        );
+      }
+
+      // Request dual-channel stereo without Android speech downmixing
       const constraints = {
         audio: {
-          channelCount: { ideal: 2, min: 1 },
+          channelCount: 2,
+          sampleRate: this.targetSampleRate,
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false
+          autoGainControl: false,
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          googHighpassFilter: false,
+          googTypingNoiseDetection: false
         }
       };
 
-      this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        console.warn("[AudioCapture] Dual-channel constraints rejected, falling back to basic stream:", err);
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: { ideal: 2 },
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+      }
       
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       try {
@@ -54,11 +81,15 @@ export class AudioCaptureService {
       }
 
       const sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-      this.channels = sourceNode.channelCount >= 2 ? 2 : 1;
+      const track = this.mediaStream.getAudioTracks()[0];
+      const trackSettings = track && track.getSettings ? track.getSettings() : {};
+      const trackChannels = trackSettings.channelCount || sourceNode.channelCount || 1;
+      this.channels = 2; // Always buffer and stream 2-channel interleaved PCM
+      console.log(`[AudioCapture] Connected mic. Track channels: ${trackChannels}, Source channels: ${sourceNode.channelCount}`);
 
-      // 4096 samples buffer (~85 ms at 48kHz)
+      // 4096 samples buffer (~85 ms at 48kHz) configured for 2 input / 2 output channels
       const bufferSize = 4096;
-      this.processorNode = this.audioContext.createScriptProcessor(bufferSize, this.channels, this.channels);
+      this.processorNode = this.audioContext.createScriptProcessor(bufferSize, 2, 2);
 
       this.processorNode.onaudioprocess = (e) => {
         if (!this.isCapturing) return;
@@ -74,7 +105,7 @@ export class AudioCaptureService {
 
       this.isCapturing = true;
       appState.set({ isListening: true });
-      console.log(`[AudioCapture] Started capture at ${this.audioContext.sampleRate} Hz (${this.channels} channels)`);
+      console.log(`[AudioCapture] Started capture at ${this.audioContext.sampleRate} Hz (2 channels interleaved)`);
       return true;
     } catch (err) {
       console.error("[AudioCapture] Could not start microphone:", err);
@@ -164,9 +195,9 @@ export class AudioCaptureService {
     }
     const b64Data = btoa(binaryStr);
 
-    // Stream ~250ms chunk over WebSocket using actual context sampleRate
+    // Stream ~250ms chunk over WebSocket using actual context sampleRate as 2-channel interleaved PCM
     const actualFs = this.audioContext ? this.audioContext.sampleRate : this.targetSampleRate;
-    this.wsClient.sendAudioChunk(b64Data, actualFs, this.channels, this.seq++);
+    this.wsClient.sendAudioChunk(b64Data, actualFs, 2, this.seq++);
 
     // Reset buffer
     this.accumulatedLeft = [];

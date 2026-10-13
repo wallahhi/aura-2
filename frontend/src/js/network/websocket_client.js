@@ -20,12 +20,7 @@ export class SoundSenseWebSocketClient {
     const loc = window.location;
     const proto = loc.protocol === "https:" ? "wss:" : "ws:";
     const host = loc.hostname || "localhost";
-    // If running on a tunnel (port is default 80/443), don't append port
-    let port = loc.port;
-    if (!port && loc.protocol === "http:" && (host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168."))) {
-      port = "8000";
-    }
-    const portStr = port ? `:${port}` : "";
+    const portStr = loc.port ? `:${loc.port}` : "";
     return `${proto}//${host}${portStr}/ws/audio-stream`;
   }
 
@@ -161,14 +156,15 @@ export class SoundSenseWebSocketClient {
     });
   }
 
-  sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text) {
+  sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text, isRear = false) {
     this.send({
       type: "synthetic_trigger",
       sound_class: soundClass,
       delay_samples: delaySamples,
       db_spl: dbSpl,
       confidence,
-      text
+      text,
+      is_rear: isRear
     });
   }
 

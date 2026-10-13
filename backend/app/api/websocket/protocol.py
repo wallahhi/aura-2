@@ -23,6 +23,7 @@ class SyntheticTriggerMessage(BaseModel):
     db_spl: float = 85.0
     confidence: float = 0.88
     text: Optional[str] = None          # If provided, triggers speech branch with transcription
+    is_rear: bool = False               # If true, models rear-hemisphere acoustic arrival (South/Behind)
 
 class ConfigUpdateMessage(BaseModel):
     type: Literal["config_update"] = "config_update"

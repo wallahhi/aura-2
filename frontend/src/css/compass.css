@@ -41,6 +41,18 @@
   position: absolute;
 }
 
+/* Rotating Cardinals Ring (driven by phone magnetometer sensor) */
+.compass-cardinals-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  transition: transform 0.15s ease-out;
+}
+
 /* Center Pivot */
 .compass-pivot {
   width: 10px;
@@ -54,16 +66,67 @@
 .cardinal-marker {
   position: absolute;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: 0.05em;
   user-select: none;
+  line-height: 1;
 }
 
-.marker-n { top: 10px; }
-.marker-s { bottom: 10px; }
-.marker-e { right: 12px; }
-.marker-w { left: 12px; }
+.marker-n {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-primary);
+}
+
+.marker-s {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.marker-e {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.marker-w {
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Ordinal Sub-Markers */
+.ordinal-marker {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  user-select: none;
+  line-height: 1;
+}
+
+.marker-ne {
+  top: 28px;
+  right: 28px;
+}
+
+.marker-nw {
+  top: 28px;
+  left: 28px;
+}
+
+.marker-se {
+  bottom: 28px;
+  right: 28px;
+}
+
+.marker-sw {
+  bottom: 28px;
+  left: 28px;
+}
 
 /* Sharp Directional Needle */
 .compass-needle {

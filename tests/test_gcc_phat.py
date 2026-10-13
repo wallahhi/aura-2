@@ -70,12 +70,16 @@ def test_gcc_phat_negative_delay_east():
     assert zone in ["NE", "E"]
 
 def test_compass_zone_boundaries():
-    """Verify exact 8-octant compass boundaries."""
+    """Verify exact 8-octant compass boundaries across all 360 degrees."""
     assert angle_to_compass_zone(10.0) == "E"
     assert angle_to_compass_zone(45.0) == "NE"
     assert angle_to_compass_zone(90.0) == "N"
     assert angle_to_compass_zone(135.0) == "NW"
     assert angle_to_compass_zone(175.0) == "W"
+    assert angle_to_compass_zone(225.0) == "SW"
+    assert angle_to_compass_zone(270.0) == "S"
+    assert angle_to_compass_zone(315.0) == "SE"
+    assert angle_to_compass_zone(355.0) == "E"
 
 if __name__ == "__main__":
     test_gcc_phat_broadside_center()

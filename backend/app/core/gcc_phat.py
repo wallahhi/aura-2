@@ -7,7 +7,7 @@ Strictly distance-free: no amplitude-based distance estimation.
 """
 
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 
 def compute_gcc_phat(
     signal_left: np.ndarray,
@@ -15,7 +15,8 @@ def compute_gcc_phat(
     fs: int = 48000,
     d: float = 0.14,
     c: float = 343.0,
-    max_tau: float = None
+    max_tau: float = None,
+    is_rear: Optional[bool] = None
 ) -> Tuple[float, float, float, str]:
     """
     Computes TDOA and directional angle theta using GCC-PHAT.
@@ -79,30 +80,72 @@ def compute_gcc_phat(
     theta_rad = float(np.arccos(arg))
     angle_deg = float(np.degrees(theta_rad))
     
+    # Check for rear arrival (Behind / South hemisphere)
+    if is_rear is True:
+        # Reflect angle across 0-180 axis into [180°, 360°]
+        angle_deg = (360.0 - angle_deg) % 360.0
+    
     # 8. Compass Zone Mapping
     compass_zone = angle_to_compass_zone(angle_deg)
     
     return tau_seconds, angle_deg, confidence, compass_zone
 
+def detect_rear_hemisphere(signal_left: np.ndarray, signal_right: np.ndarray, fs: int = 48000) -> bool:
+    """
+    Evaluates whether sound arrives from the rear of the phone using
+    acoustic chassis diffraction and spectral high-frequency shadowing.
+    Sounds originating behind the phone chassis suffer >6-12 dB diffraction attenuation
+    in the 3.5 kHz - 9.0 kHz band relative to the 500 Hz - 2.5 kHz band.
+    """
+    mono = 0.5 * (signal_left + signal_right)
+    if len(mono) < 128:
+        return False
+        
+    n_fft = int(2 ** np.ceil(np.log2(len(mono))))
+    spec = np.abs(np.fft.rfft(mono, n=n_fft))
+    freqs = np.fft.rfftfreq(n_fft, d=1.0 / fs)
+    
+    # Reference band (500 Hz - 2500 Hz)
+    mid_mask = (freqs >= 500) & (freqs <= 2500)
+    # Chassis-shadowed high-frequency band (3500 Hz - 9000 Hz)
+    high_mask = (freqs >= 3500) & (freqs <= 9000)
+    
+    e_mid = float(np.sum(spec[mid_mask] ** 2)) + 1e-12
+    e_high = float(np.sum(spec[high_mask] ** 2)) + 1e-12
+    
+    ratio = e_high / e_mid
+    # Rear sound exhibits low HF/MF energy ratio due to physical body shadowing
+    return ratio < 0.085
+
 def angle_to_compass_zone(angle_deg: float) -> str:
     """
-    Maps arrival angle theta [0° - 180°] to standard compass zones.
-    0° = East (Right)
+    Maps arrival angle theta [0° - 360°] to standard 8 compass zones.
+    0° / 360° = East (Right)
     45° = North-East (Front-Right)
     90° = North (Center / Straight Ahead)
     135° = North-West (Front-Left)
     180° = West (Left)
+    225° = South-West (Back-Left)
+    270° = South (Behind / Back)
+    315° = South-East (Back-Right)
     """
-    if angle_deg < 22.5:
+    deg = float(angle_deg) % 360.0
+    if deg < 22.5 or deg >= 337.5:
         return "E"
-    elif angle_deg < 67.5:
+    elif deg < 67.5:
         return "NE"
-    elif angle_deg < 112.5:
+    elif deg < 112.5:
         return "N"
-    elif angle_deg < 157.5:
+    elif deg < 157.5:
         return "NW"
-    else:
+    elif deg < 202.5:
         return "W"
+    elif deg < 247.5:
+        return "SW"
+    elif deg < 292.5:
+        return "S"
+    else:
+        return "SE"
 
 def simulate_stereo_delay(
     mono_signal: np.ndarray,

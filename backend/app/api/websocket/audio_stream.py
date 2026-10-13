@@ -58,13 +58,15 @@ async def websocket_audio_stream(websocket: WebSocket):
                 db_spl = float(msg.get("db_spl", 85.0))
                 confidence = float(msg.get("confidence", 0.88))
                 text = msg.get("text")
+                is_rear = bool(msg.get("is_rear", False))
 
                 events = orchestrator.process_synthetic_trigger(
                     sound_class=sound_class,
                     delay_samples=delay_samples,
                     db_spl=db_spl,
                     confidence=confidence,
-                    text=text
+                    text=text,
+                    is_rear=is_rear
                 )
                 for event in events:
                     await websocket.send_text(json.dumps(event))
