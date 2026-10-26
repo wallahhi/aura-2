@@ -128,9 +128,66 @@ def test_pipeline_orchestrator_synthetic():
     speech_evt = next(e for e in events_speech if e["type"] == "sound_event")
     assert speech_evt["display_name"] == "Human Speech"
 
+def test_comprehensive_real_world_sound_classification():
+    """Verify high-precision classification across realistic acoustic signatures."""
+    from scipy import signal
+    yamnet = YAMNetService(confidence_threshold=0.70)
+    fs = 16000
+    t = np.linspace(0, 0.5, int(fs * 0.5), endpoint=False)
+
+    # 1. Doorbell Chime
+    chime = (np.sin(2 * np.pi * 850 * t) + 0.5 * np.sin(2 * np.pi * 1700 * t)) * np.exp(-np.linspace(0, 4, len(t))) * 0.2
+    c, conf, meets, is_speech = yamnet.classify_and_route(chime.astype(np.float32))
+    assert meets is True
+    assert c == "Doorbell"
+    assert is_speech is False
+
+    # 2. Smoke Alarm (NFPA 72 3.1 kHz pure beep)
+    alarm = (np.sin(2 * np.pi * 3100 * t) * 0.35).astype(np.float32)
+    c, conf, meets, is_speech = yamnet.classify_and_route(alarm)
+    assert meets is True
+    assert c == "Smoke detector, smoke alarm"
+    assert is_speech is False
+
+    # 3. Car Horn (dual 420 Hz + 520 Hz)
+    horn = ((np.sin(2 * np.pi * 420 * t) + 0.8 * np.sin(2 * np.pi * 520 * t)) * 0.3).astype(np.float32)
+    c, conf, meets, is_speech = yamnet.classify_and_route(horn)
+    assert meets is True
+    assert c == "Car horn"
+    assert is_speech is False
+
+    # 4. Siren Sweep (600 - 1200 Hz FM)
+    siren = (np.sin(2 * np.pi * (900 + 300 * np.sin(2 * np.pi * 2 * t)) * t) * 0.25).astype(np.float32)
+    c, conf, meets, is_speech = yamnet.classify_and_route(siren)
+    assert meets is True
+    assert c == "Siren"
+    assert is_speech is False
+
+    # 5. Water Tap Running (continuous wideband hiss)
+    water = signal.lfilter(*signal.butter(2, 2500 / (fs / 2), btype="low"), np.random.randn(len(t))) * 0.05
+    c, conf, meets, is_speech = yamnet.classify_and_route(water.astype(np.float32))
+    assert meets is True
+    assert c == "Water"
+    assert is_speech is False
+
+    # 6. Glass Break (high-frequency shatter)
+    g_burst = (np.random.randn(int(fs * 0.06)) + np.sin(2 * np.pi * 4500 * t[:int(fs * 0.06)])) * np.exp(-np.linspace(0, 7, int(fs * 0.06))) * 0.4
+    glass = np.pad(g_burst, (500, int(fs * 0.5) - 500 - len(g_burst))).astype(np.float32)
+    c, conf, meets, is_speech = yamnet.classify_and_route(glass)
+    assert meets is True
+    assert c == "Glass"
+    assert is_speech is False
+
+    # 7. Shouting / Scream
+    scream = (0.6 * np.sin(2 * np.pi * 1200 * t) + 0.3 * np.sin(2 * np.pi * 2400 * t) + 0.1 * np.random.randn(len(t))) * 0.25
+    c, conf, meets, is_speech = yamnet.classify_and_route(scream.astype(np.float32))
+    assert meets is True
+    assert c in ["Shout", "Screaming"]
+
 if __name__ == "__main__":
     test_highpass_filter()
     test_yamnet_speech_vs_environmental_routing()
     test_environmental_acoustic_signatures()
+    test_comprehensive_real_world_sound_classification()
     test_pipeline_orchestrator_synthetic()
     print("All YAMNet and Pipeline Orchestrator tests passed successfully!")

@@ -73,9 +73,11 @@ class YAMNetService:
 
     def _signature_classify(self, audio: np.ndarray) -> Tuple[str, float]:
         """
-        High-precision DSP spectral and transient analysis fallback engine.
-        Discriminates between Smoke alarm, Siren, Horn, Glass, Whistle,
-        Clapping/Applause, Knock, Doorbell, Dog, Speech, Water, and Ambient.
+        Multi-feature scoring-based acoustic classifier.
+        Computes weighted feature match scores for ALL categories simultaneously
+        and selects the highest-scoring category. This eliminates order-dependent
+        cascading if-else misclassification where an earlier rule would greedily
+        steal a classification that a later rule matches better.
         """
         if len(audio) == 0:
             return "Silence", 0.95
@@ -87,6 +89,7 @@ class YAMNetService:
         n_samples = len(audio)
         peak_amp = float(np.max(np.abs(audio)))
         crest_factor = float(peak_amp / (rms + 1e-9))
+
         # Robust zero-crossing rate on active audio above noise threshold
         thresh = max(1e-4, 0.03 * peak_amp)
         active_audio = audio[np.abs(audio) >= thresh]
@@ -140,61 +143,206 @@ class YAMNetService:
         high_band = float(np.sum(power[(freqs >= 3000) & (freqs < 5500)]) / total_power)
         ultra_high_band = float(np.sum(power[(freqs >= 5500) & (freqs <= 8000)]) / total_power)
 
-        # --- ACOUSTIC CLASSIFICATION HEURISTICS ---
+        # Spectral Rolloff (frequency below which 85% of energy is contained)
+        cumulative_power = np.cumsum(power)
+        rolloff_idx = int(np.searchsorted(cumulative_power, 0.85 * total_power))
+        rolloff_freq = float(freqs[min(rolloff_idx, len(freqs) - 1)])
 
-        # 1. Fire Alarm / Smoke Detector: Ultra-pure tone at 2800 - 3500 Hz
-        if (2800 <= peak_freq <= 3500) and (tonality > 30.0 or high_band > 0.45) and spread < 1400:
-            return "Smoke detector, smoke alarm", 0.94
+        # Harmonic ratio (energy at 2× and 3× fundamental vs fundamental)
+        harmonic_ratio = 0.0
+        if peak_freq > 50 and peak_idx > 0:
+            f2_idx = min(int(np.argmin(np.abs(freqs - 2 * peak_freq))), len(power) - 1)
+            f3_idx = min(int(np.argmin(np.abs(freqs - 3 * peak_freq))), len(power) - 1)
+            harmonic_ratio = float((power[f2_idx] + power[f3_idx]) / (power[peak_idx] + 1e-12))
 
-        # 2. Whistle: Pure high sinusoidal tone 1700 - 3800 Hz
-        if (1700 <= peak_freq <= 3800) and (tonality > 30.0) and (flatness < 0.02):
-            return "Whistle", 0.92
+        speech_bands = sum(1 for b in [sub_low_band, low_mid_band, mid_band] if b > 0.08)
 
-        # 3. Glass Breaking: High frequency shatter transient, wideband ultra-high energy
-        if (centroid > 3800 and (high_band + ultra_high_band) > 0.60 and zcr > 0.28) or (ultra_high_band > 0.45 and crest_factor > 3.8):
-            return "Glass", 0.88
+        # =====================================================
+        # MULTI-FEATURE SCORING: score every category, pick best
+        # =====================================================
+        scores: Dict[str, float] = {}
 
-        # 4. Siren: Piercing sweep or sustained modulation in mid frequencies (continuous tone)
-        if (700 <= peak_freq < 1700) and (tonality > 12.0 or mid_band > 0.50) and crest_factor < 3.5:
-            return "Siren", 0.91
+        # 1. Smoke Detector / Fire Alarm: NFPA 72 standard 2800 - 3500 Hz pure tone, ear-piercing loud
+        s = 0.0
+        if 2800 <= peak_freq <= 3500:
+            s += 0.35
+            if high_band > 0.50: s += 0.30
+            elif high_band > 0.30: s += 0.15
+            if tonality > 20.0: s += 0.25
+            if flatness < 0.01: s += 0.20
+            if rms > 0.10: s += 0.15
+        scores["Smoke detector, smoke alarm"] = s
 
-        # 5. Door Knock: Low-frequency transient impulse with fast decay
-        if (crest_factor > 3.2 or sub_rms_ratio > 2.2) and (sub_low_band > 0.55 and centroid < 750) and zcr < 0.16:
-            return "Knock", 0.87
+        # 2. Whistle: 1600 - 2800 Hz pure sinusoidal tone
+        s = 0.0
+        if 1600 <= peak_freq <= 2800:
+            s += 0.35
+            if tonality > 20.0: s += 0.25
+            elif tonality > 8.0: s += 0.15
+            if flatness < 0.015: s += 0.25
+            if spread < 1200: s += 0.15
+            if crest_factor < 3.0: s += 0.10
+        scores["Whistle"] = s
 
-        # 6. Clapping / Applause / Snapping: Percussive transient with high crest factor and wideband flatness
-        if (crest_factor > 3.8 or sub_rms_ratio > 2.5) and (flatness > 0.05 or zcr > 0.15 or high_band > 0.20 or centroid >= 750):
-            return "Clapping", 0.88
+        # 3. Glass Breaking: shatter transient with very high centroid (>3200Hz) & high band energy
+        s = 0.0
+        if (centroid > 3200 or peak_freq > 3500) and (high_band + ultra_high_band) > 0.40:
+            s += 0.35
+            if crest_factor > 6.0: s += 0.30
+            elif crest_factor > 3.0: s += 0.15
+            if (high_band + ultra_high_band) > 0.60: s += 0.25
+            if centroid > 3800: s += 0.20
+            if zcr > 0.25: s += 0.15
+            if flatness > 0.08: s += 0.15
+        scores["Glass"] = s
 
-        # 7. Doorbell: Resonant harmonic chimes with decay
-        if (700 <= peak_freq <= 2400) and (tonality > 15.0 or (low_mid_band + mid_band) > 0.70) and (crest_factor > 2.8 or sub_rms_ratio > 2.0) and zcr < 0.18:
-            return "Doorbell", 0.88
+        # 4. Siren: mid-freq (650-1650Hz) tonal acoustic machine, continuous, low flatness
+        s = 0.0
+        if 650 <= peak_freq <= 1650 and flatness < 0.015 and tonality > 10.0:
+            s += 0.35
+            if tonality > 20.0: s += 0.25
+            elif tonality > 10.0: s += 0.15
+            if mid_band > 0.25: s += 0.20
+            if crest_factor < 2.8: s += 0.20
+            if sub_rms_std < 0.35: s += 0.15
+            if rms > 0.08: s += 0.15
+        scores["Siren"] = s
 
-        # 8. Dog Bark: Mid-range percussive bark burst with low-mid fundamental
-        if (400 <= peak_freq <= 1200 or low_mid_band > 0.42) and (sub_rms_ratio > 2.4 or crest_factor > 3.2) and (600 <= centroid <= 1800):
-            return "Dog", 0.86
+        # 5. Knock: low-frequency percussive impulse (must be burst: sub_rms_ratio > 1.8)
+        s = 0.0
+        if centroid < 900 and sub_low_band > 0.35 and sub_rms_ratio > 1.8:
+            s += 0.25
+            if crest_factor > 3.0: s += 0.25
+            if sub_rms_ratio > 2.0: s += 0.20
+            if zcr < 0.16: s += 0.15
+            if flatness < 0.05: s += 0.15
+        scores["Knock"] = s
 
-        # 9. Screaming / Loud Shout: High RMS, high centroid
-        if rms > 0.12 and centroid > 2000 and (zcr > 0.20 or mid_band > 0.45):
-            return "Screaming", 0.89
-        elif rms > 0.10 and centroid > 1500 and sub_rms_ratio > 2.0:
-            return "Shout", 0.87
+        # 6. Clapping / Applause: broadband percussive impulse (centroid < 3500 Hz, unlike glass)
+        s = 0.0
+        if crest_factor > 3.5 and centroid < 3500 and sub_rms_ratio > 1.8:
+            if crest_factor > 10.0: s += 0.40
+            elif crest_factor > 5.0: s += 0.25
+            else: s += 0.15
+            if flatness > 0.04: s += 0.25
+            elif flatness > 0.02: s += 0.15
+            if sub_rms_ratio > 2.0: s += 0.20
+            if 750 <= centroid <= 3000: s += 0.25
+            if (high_band + ultra_high_band) < 0.65: s += 0.15
+        scores["Clapping"] = s
 
-        # 10. Car Horn: Loud dual harmonic or harsh fundamental
-        if (rms > 0.08 and 400 <= centroid <= 2200 and (low_mid_band > 0.35 or mid_band > 0.40)) or (400 <= peak_freq <= 800 and tonality > 10.0 and rms > 0.05):
-            return "Car horn", 0.88
+        # 7. Doorbell: resonant chime 600-2400 Hz with sharp attack and long decay
+        s = 0.0
+        if 600 <= peak_freq <= 2400 and (sub_rms_ratio > 1.8 or sub_rms_std > 0.30):
+            s += 0.35
+            if tonality > 20.0: s += 0.30
+            elif tonality > 8.0: s += 0.15
+            if flatness < 0.005: s += 0.30
+            elif flatness < 0.015: s += 0.15
+            if (low_mid_band + mid_band) > 0.50: s += 0.15
+            if 2.5 <= crest_factor <= 6.0: s += 0.15
+        scores["Doorbell"] = s
 
-        # 11. Human Speech: Formant energy in 250 - 2500 Hz, low crest factor, modest ZCR
-        if ((low_mid_band + mid_band) > 0.50 or (sub_low_band + low_mid_band) > 0.55) and (250 <= centroid <= 2200) and (crest_factor < 4.2):
-            return "Speech", 0.86
+        # 8. Dog Bark: mid-range percussive bark burst (MUST be burst: sub_rms_ratio > 1.8)
+        s = 0.0
+        if 300 <= peak_freq <= 1200 and sub_rms_ratio > 1.8:
+            s += 0.20
+            if low_mid_band > 0.30: s += 0.20
+            if 2.8 <= crest_factor <= 10.0: s += 0.20
+            if 500 <= centroid <= 1800: s += 0.15
+            if sub_rms_std > 0.30: s += 0.15
+        scores["Dog"] = s
 
-        # 12. Water Running: Smooth wideband continuous sound
-        if (flatness > 0.10 and sub_rms_std < 0.35 and crest_factor < 2.8 and 1000 <= centroid <= 3500 and tonality < 8.0):
-            return "Water", 0.82
+        # 9. Screaming / Shout: loud human vocalization (NOT pure tone like whistle)
+        s = 0.0
+        if rms > 0.09 and centroid > 1100 and flatness >= 0.010:
+            s += 0.30
+            if rms > 0.14: s += 0.25
+            elif rms > 0.10: s += 0.15
+            if mid_band > 0.25: s += 0.25
+            if 700 <= peak_freq <= 2500: s += 0.20
+            if zcr > 0.14: s += 0.15
+        scores["Screaming"] = s
 
-        # 13. Sudden Sound Impulse (Percussive surge that didn't match knock/clap specifically)
-        if crest_factor > 4.0 or sub_rms_ratio > 3.0 or rms > 0.12:
-            return "Sudden sound", 0.84
+        # 10. Car Horn: loud dual tone 350 - 850 Hz
+        s = 0.0
+        if 350 <= peak_freq <= 850:
+            s += 0.20
+            if rms > 0.12: s += 0.25
+            elif rms > 0.06: s += 0.15
+            if tonality > 12.0: s += 0.25
+            if spread < 1000: s += 0.15
+            if crest_factor < 2.5: s += 0.15
+        scores["Car horn"] = s
 
-        # 14. Ambient background noise
-        return "Traffic noise, roadway noise", 0.72
+        # 11. Human Speech: formant structure, non-pure tone, moderate crest
+        s = 0.0
+        is_continuous_noise = (flatness > 0.035 and sub_rms_ratio < 1.6 and sub_rms_std < 0.25)
+        is_impulse = (crest_factor > 6.5)
+        is_chime = (sub_rms_ratio > 1.8 and flatness < 0.005 and tonality > 80.0)
+        is_single_whistle = (flatness < 0.005 and tonality > 80.0 and speech_bands < 2)
+        is_continuous_siren = (rms > 0.10 and flatness < 0.015 and crest_factor < 2.5 and speech_bands < 2)
+        is_screaming = (rms > 0.13 and centroid > 1200 and flatness >= 0.010)
+
+        if is_continuous_noise or is_impulse or is_chime or is_single_whistle or is_continuous_siren or is_screaming:
+            s = 0.0
+        else:
+            speech_band = low_mid_band + mid_band
+            if speech_band > 0.40: s += 0.20
+            if 300 <= centroid <= 2500: s += 0.20
+            if crest_factor < 5.0: s += 0.15
+            if 0.03 <= zcr <= 0.28: s += 0.15
+            if speech_bands >= 2: s += 0.25
+            if 0.003 <= flatness <= 0.05: s += 0.20
+            elif speech_bands >= 2: s += 0.15
+            if sub_rms_std <= 0.70: s += 0.10
+        scores["Speech"] = s
+
+        # 12. Water Running: smooth continuous wideband noise
+        s = 0.0
+        if flatness > 0.02 and crest_factor < 4.5 and sub_rms_ratio < 1.6 and sub_rms_std < 0.25:
+            s += 0.35
+            if flatness > 0.035: s += 0.25
+            if tonality < 15.0: s += 0.20
+            if 800 <= centroid <= 3500: s += 0.20
+            if rms < 0.10: s += 0.15
+        scores["Water"] = s
+
+        # 13. Sudden Sound Impulse (unmatched transient burst)
+        s = 0.0
+        if crest_factor > 4.5 and sub_rms_ratio > 2.5:
+            s += 0.35
+        scores["Sudden sound"] = s
+
+        # 14. Ambient background traffic noise
+        s = 0.15
+        if rms < 0.06: s += 0.15
+        if sub_rms_std < 0.40: s += 0.10
+        if flatness > 0.03: s += 0.10
+        if tonality < 10.0: s += 0.15
+        if crest_factor < 3.5: s += 0.10
+        scores["Traffic noise, roadway noise"] = s
+
+        # --- SELECT BEST MATCH ---
+        best_class = max(scores, key=scores.get)
+        best_score = scores[best_class]
+
+        # Debug log top 3 candidates
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        top3 = [(c, round(s, 3)) for c, s in sorted_scores[:3]]
+        print(f"[YAMNet-Sig] rms={rms:.4f} centroid={centroid:.0f}Hz peak={peak_freq:.0f}Hz "
+              f"tonality={tonality:.1f} crest={crest_factor:.1f} flat={flatness:.4f} "
+              f"zcr={zcr:.3f} → {top3}")
+
+        # If best score is too low, default to ambient
+        if best_score < 0.30:
+            return "Traffic noise, roadway noise", 0.72
+
+        # Map score → confidence: [0.30 → 0.75] .. [1.0 → 0.95]
+        confidence = min(0.95, 0.70 + best_score * 0.25)
+
+        # Promote Shout over Screaming when RMS is moderate
+        if best_class == "Screaming" and rms < 0.14:
+            best_class = "Shout"
+
+        return best_class, confidence
