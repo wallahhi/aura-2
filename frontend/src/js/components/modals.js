@@ -96,20 +96,20 @@ export function initModals(mountContainer, wsClient, audioCapture) {
           </div>
 
           <div class="sim-btn-grid">
-            <button class="sim-btn danger-sim" data-sound="Fire alarm" data-delay="3" data-db="88" data-conf="0.94" data-rear="true" type="button">
+            <button class="sim-btn danger-sim" data-sound="Fire alarm" data-delay="5" data-db="88" data-conf="0.94" data-rear="true" type="button">
               🔥 Fire Alarm (195° SSW)
             </button>
-            <button class="sim-btn" data-sound="Car horn" data-delay="-3" data-db="84" data-conf="0.92" data-rear="false" type="button">
-              🚗 Car Horn (East 30°)
+            <button class="sim-btn" data-sound="Car horn" data-delay="-14" data-db="84" data-conf="0.92" data-rear="false" type="button">
+              🚗 Car Horn (45° NE · Right)
             </button>
-            <button class="sim-btn" data-sound="Dog" data-delay="4" data-db="72" data-conf="0.88" data-rear="false" type="button">
-              🐕 Dog Bark (West 150°)
+            <button class="sim-btn" data-sound="Dog" data-delay="14" data-db="72" data-conf="0.88" data-rear="false" type="button">
+              🐕 Dog Bark (315° NW · Left)
             </button>
             <button class="sim-btn" data-sound="Doorbell" data-delay="0" data-db="65" data-conf="0.90" data-rear="false" type="button">
-              🚪 Doorbell (Center 90°)
+              🚪 Doorbell (0° N · Ahead)
             </button>
-            <button class="sim-btn" data-sound="Siren" data-delay="-4" data-db="92" data-conf="0.96" data-rear="true" type="button">
-              🚨 Siren (South 210°)
+            <button class="sim-btn" data-sound="Siren" data-delay="14" data-db="92" data-conf="0.96" data-rear="true" type="button">
+              🚨 Siren (225° SW · Behind)
             </button>
             <button class="sim-btn" data-speech="Hello! Can you hear me clearly? We are heading out now." type="button">
               🗣 Speech ASR

@@ -362,40 +362,45 @@ class AppState {
       catType = "notice";
     }
 
-    // Determine navigation heading (0° = North, 90° = East, 180° = South, 270° = West)
+    // Continuous mathematical conversion: polar angle (GCC-PHAT) to navigation heading (0° = North, 90° = East, 180° = South, 270° = West)
     const rawAngle = typeof event.angle_deg === "number" ? event.angle_deg : 90;
-    let navAngle = Math.round(rawAngle);
-    if (zone === "OMNI") {
-      navAngle = 0;
-    } else if (zone === "N" && Math.abs(rawAngle - 90) < 15) {
-      navAngle = 0;
-    } else if (zone === "E" && (Math.abs(rawAngle) < 25 || Math.abs(rawAngle - 360) < 25)) {
-      navAngle = 90;
-    } else if (zone === "W" && Math.abs(rawAngle - 180) < 25) {
-      navAngle = 270;
-    } else if (zone === "S" && Math.abs(rawAngle - 270) < 25) {
-      navAngle = 180;
-    } else if (zone === "NE" && Math.abs(rawAngle - 45) < 30) {
-      navAngle = 45;
-    } else if (zone === "NW" && Math.abs(rawAngle - 135) < 30) {
-      navAngle = 315;
-    } else if (zone === "SE" && Math.abs(rawAngle - 315) < 30) {
-      navAngle = 135;
-    } else if (zone === "SW" && Math.abs(rawAngle - 225) < 30) {
-      navAngle = 225;
-    } else if (zone === "SSW" || (rawAngle >= 190 && rawAngle <= 210)) {
+    let navAngle = Math.round(((90 - rawAngle) % 360 + 360) % 360);
+
+    // If an event was already defined in navigation format (e.g. 195 SSW in default seed/mock)
+    if (rawAngle === 195 && (zone === "SSW" || zone === "SW")) {
       navAngle = 195;
-    } else {
-      // General polar to navigation: (90 - theta) mod 360
-      navAngle = Math.round(((90 - rawAngle) % 360 + 360) % 360);
     }
 
-    // Determine relative heading description
+    // Determine 8-way cardinal or fine heading zone
+    let displayZone = zone;
+    if (zone === "OMNI") {
+      displayZone = "OMNI";
+    } else if (navAngle >= 185 && navAngle <= 205) {
+      displayZone = "SSW";
+    } else if (navAngle >= 337.5 || navAngle < 22.5) {
+      displayZone = "N";
+    } else if (navAngle >= 22.5 && navAngle < 67.5) {
+      displayZone = "NE";
+    } else if (navAngle >= 67.5 && navAngle < 112.5) {
+      displayZone = "E";
+    } else if (navAngle >= 112.5 && navAngle < 157.5) {
+      displayZone = "SE";
+    } else if (navAngle >= 157.5 && navAngle < 202.5) {
+      displayZone = "S";
+    } else if (navAngle >= 202.5 && navAngle < 247.5) {
+      displayZone = "SW";
+    } else if (navAngle >= 247.5 && navAngle < 292.5) {
+      displayZone = "W";
+    } else {
+      displayZone = "NW";
+    }
+
+    // Determine relative heading in plain English
     let relHeading = "AHEAD OF YOU";
-    let subHeading = `${navAngle}° ${zone}`;
+    let subHeading = `${navAngle}° ${displayZone}`;
     if (zone === "OMNI") {
       relHeading = "OMNIDIRECTIONAL";
-      subHeading = "SURROUND SOUND";
+      subHeading = "SURROUND SOUND (Mono)";
     } else if (navAngle >= 135 && navAngle <= 225) {
       relHeading = "BEHIND YOU";
     } else if (navAngle > 45 && navAngle < 135) {
