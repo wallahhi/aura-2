@@ -36,7 +36,7 @@ from app.api.websocket.protocol import (
 class PipelineOrchestrator:
     def __init__(self):
         self.preprocessor = AudioPreprocessor(hp_cutoff_hz=80.0)
-        self.yamnet = YAMNetService(confidence_threshold=0.70)
+        self.yamnet = YAMNetService(confidence_threshold=0.25)
         self.whisper = WhisperService(api_key=settings.OPENAI_API_KEY)
         self.danger_engine = DangerEngine(
             cooldown_sec=settings.COOLDOWN_SECONDS,

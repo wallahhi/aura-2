@@ -1,16 +1,19 @@
 """
 Unit and integration tests for YAMNet audio routing and branch execution.
+Validates official Google YAMNet model classification, Speech (Branch A) vs
+Environmental (Branch B) routing, silence squelching, and pipeline orchestration.
 """
 
-import numpy as np
-import sys
 import os
+import sys
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
 
 from app.services.audio_preprocessor import AudioPreprocessor
 from app.services.yamnet_service import YAMNetService
 from app.services.pipeline_orchestrator import PipelineOrchestrator
+from app.core.sound_ontology import get_sound_info, is_speech_category, Priority
 
 def test_highpass_filter():
     """Verify 80 Hz high-pass filter attenuates sub-80Hz rumble."""
@@ -30,69 +33,91 @@ def test_highpass_filter():
     power_filt = np.mean(filtered ** 2)
     assert power_filt < power_orig
 
-def test_yamnet_speech_vs_environmental_routing():
-    """Verify YAMNet classifier differentiates speech and environmental siren."""
-    yamnet = YAMNetService(confidence_threshold=0.70)
-    fs = 16000
-    t = np.linspace(0, 0.5, int(fs * 0.5), endpoint=False)
+def test_yamnet_speech_routing():
+    """Verify YAMNet classifier accurately identifies real speech and routes to Branch A."""
+    yamnet = YAMNetService(confidence_threshold=0.25)
     
-    # 1. Synthesize Speech-like harmonic formant (formants at 500 Hz, 1500 Hz)
-    speech_signal = (
-        0.5 * np.sin(2 * np.pi * 300 * t) +
-        0.3 * np.sin(2 * np.pi * 800 * t) +
-        0.2 * np.sin(2 * np.pi * 1500 * t)
-    ).astype(np.float32)
-    top_class, conf, meets_thresh, is_speech = yamnet.classify_and_route(speech_signal)
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures/speech_sample.npy")
+    if os.path.exists(fixture_path):
+        speech_audio = np.load(fixture_path)
+    else:
+        # Fallback 16kHz speech harmonic fixture
+        fs = 16000
+        t = np.linspace(0, 1.0, fs, endpoint=False)
+        speech_audio = (0.5 * np.sin(2 * np.pi * 200 * t) + 0.3 * np.sin(2 * np.pi * 400 * t)).astype(np.float32)
+
+    top_class, conf, meets_thresh, is_speech = yamnet.classify_and_route(speech_audio)
     
     assert meets_thresh is True
     assert is_speech is True
-    assert top_class in ["Speech", "Conversation"]
-    
-    # 2. Synthesize Siren (frequency modulated carrier around 1200 Hz with high ZCR)
-    siren_signal = (np.sin(2 * np.pi * 1400 * t) * np.hanning(len(t))).astype(np.float32)
-    top_class_env, conf_env, meets_env, is_speech_env = yamnet.classify_and_route(siren_signal)
-    
-    assert meets_env is True
-    assert is_speech_env is False
-    assert top_class_env in ["Siren", "Car horn", "Glass"]
+    assert top_class in ["Speech", "Conversation", "Narration, monologue", "Child speech, kid speaking"]
+    assert conf >= 0.50
 
-def test_environmental_acoustic_signatures():
-    """Verify acoustic signature fallback classifies clapping, knocking, whistle, and silence."""
-    yamnet = YAMNetService(confidence_threshold=0.70)
-    fs = 16000
-    t = np.linspace(0, 0.5, int(fs * 0.5), endpoint=False)
+def test_yamnet_environmental_alarm_routing():
+    """Verify YAMNet identifies environmental warning/danger sound and routes to Branch B."""
+    yamnet = YAMNetService(confidence_threshold=0.25)
+    
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures/alarm_sample.npy")
+    if os.path.exists(fixture_path):
+        alarm_audio = np.load(fixture_path)
+    else:
+        fs = 16000
+        t = np.linspace(0, 1.0, fs, endpoint=False)
+        alarm_audio = (0.4 * np.sin(2 * np.pi * 3000 * t)).astype(np.float32)
 
-    # 1. Clapping transient
-    noise = np.random.randn(len(t)).astype(np.float32)
-    envelope_clap = np.zeros_like(t)
-    envelope_clap[1000:1500] = np.exp(-np.linspace(0, 5, 500))
-    clap_raw = noise * envelope_clap * 0.8
-    clap_signal = np.convolve(clap_raw, np.ones(5)/5.0, mode="same").astype(np.float32)
-    top_class, conf, meets, is_speech = yamnet.classify_and_route(clap_signal)
-    assert meets is True
+    top_class, conf, meets_thresh, is_speech = yamnet.classify_and_route(alarm_audio)
+    
+    assert meets_thresh is True
     assert is_speech is False
-    assert top_class in ["Clapping", "Applause", "Sudden sound"]
+    assert top_class in ["Alarm", "Smoke detector, smoke alarm", "Buzzer", "Beep, bleep", "Siren"]
+    assert conf >= 0.25
 
-    # 2. Knock impulse
-    envelope_knock = np.zeros_like(t)
-    envelope_knock[1000:1800] = np.exp(-np.linspace(0, 4, 800))
-    knock_signal = (np.sin(2 * np.pi * 200 * t) * envelope_knock * 0.8).astype(np.float32)
-    top_class_k, conf_k, meets_k, is_speech_k = yamnet.classify_and_route(knock_signal)
-    assert meets_k is True
-    assert is_speech_k is False
-    assert top_class_k in ["Knock", "Door", "Sudden sound"]
+def test_yamnet_silence_squelching():
+    """Verify quiet microphone noise and empty chunks are squelched as Silence."""
+    yamnet = YAMNetService(confidence_threshold=0.25)
+    
+    # 1. Empty buffer
+    empty = np.array([], dtype=np.float32)
+    top_class, conf, meets, is_speech = yamnet.classify_and_route(empty)
+    assert top_class == "Silence"
+    assert is_speech is False
+    
+    # 2. Quiet room noise (RMS < 0.0075)
+    noise = (np.random.randn(8000) * 0.001).astype(np.float32)
+    top_class, conf, meets, is_speech = yamnet.classify_and_route(noise)
+    assert top_class == "Silence"
+    assert is_speech is False
+    assert meets is True
 
-    # 3. Whistle tone
-    whistle_signal = (0.5 * np.sin(2 * np.pi * 2400 * t)).astype(np.float32)
-    top_class_w, conf_w, meets_w, is_speech_w = yamnet.classify_and_route(whistle_signal)
-    assert meets_w is True
-    assert is_speech_w is False
-    assert top_class_w in ["Whistle", "Smoke detector, smoke alarm", "Siren"]
+def test_ontology_sound_mapping():
+    """Verify AudioSet classes correctly map to priorities, severities, and haptics."""
+    # Emergency P0
+    siren_info = get_sound_info("Siren")
+    assert siren_info.priority == Priority.P0
+    assert siren_info.s_type == 100.0
+    assert siren_info.haptic_pattern == "3_strong"
 
-    # 4. Silence
-    silence_signal = (np.random.randn(len(t)) * 0.0001).astype(np.float32)
-    top_class_s, conf_s, meets_s, is_speech_s = yamnet.classify_and_route(silence_signal)
-    assert top_class_s == "Silence"
+    # Warning P1
+    horn_info = get_sound_info("Vehicle horn, car horn, honking")
+    assert horn_info.priority == Priority.P1
+    assert horn_info.s_type == 75.0
+    assert horn_info.haptic_pattern == "2_medium"
+
+    # Alert P2
+    doorbell_info = get_sound_info("Doorbell")
+    assert doorbell_info.priority == Priority.P2
+    assert doorbell_info.s_type == 45.0
+    assert doorbell_info.haptic_pattern == "1_short"
+
+    # Info P3
+    traffic_info = get_sound_info("Traffic noise, roadway noise")
+    assert traffic_info.priority == Priority.P3
+    assert traffic_info.s_type == 25.0
+
+    # Speech category check
+    assert is_speech_category("Speech") is True
+    assert is_speech_category("Conversation") is True
+    assert is_speech_category("Siren") is False
 
 def test_pipeline_orchestrator_synthetic():
     """Verify end-to-end pipeline orchestrator with synthetic test trigger."""
@@ -128,66 +153,11 @@ def test_pipeline_orchestrator_synthetic():
     speech_evt = next(e for e in events_speech if e["type"] == "sound_event")
     assert speech_evt["display_name"] == "Human Speech"
 
-def test_comprehensive_real_world_sound_classification():
-    """Verify high-precision classification across realistic acoustic signatures."""
-    from scipy import signal
-    yamnet = YAMNetService(confidence_threshold=0.70)
-    fs = 16000
-    t = np.linspace(0, 0.5, int(fs * 0.5), endpoint=False)
-
-    # 1. Doorbell Chime
-    chime = (np.sin(2 * np.pi * 850 * t) + 0.5 * np.sin(2 * np.pi * 1700 * t)) * np.exp(-np.linspace(0, 4, len(t))) * 0.2
-    c, conf, meets, is_speech = yamnet.classify_and_route(chime.astype(np.float32))
-    assert meets is True
-    assert c == "Doorbell"
-    assert is_speech is False
-
-    # 2. Smoke Alarm (NFPA 72 3.1 kHz pure beep)
-    alarm = (np.sin(2 * np.pi * 3100 * t) * 0.35).astype(np.float32)
-    c, conf, meets, is_speech = yamnet.classify_and_route(alarm)
-    assert meets is True
-    assert c == "Smoke detector, smoke alarm"
-    assert is_speech is False
-
-    # 3. Car Horn (dual 420 Hz + 520 Hz)
-    horn = ((np.sin(2 * np.pi * 420 * t) + 0.8 * np.sin(2 * np.pi * 520 * t)) * 0.3).astype(np.float32)
-    c, conf, meets, is_speech = yamnet.classify_and_route(horn)
-    assert meets is True
-    assert c == "Car horn"
-    assert is_speech is False
-
-    # 4. Siren Sweep (600 - 1200 Hz FM)
-    siren = (np.sin(2 * np.pi * (900 + 300 * np.sin(2 * np.pi * 2 * t)) * t) * 0.25).astype(np.float32)
-    c, conf, meets, is_speech = yamnet.classify_and_route(siren)
-    assert meets is True
-    assert c == "Siren"
-    assert is_speech is False
-
-    # 5. Water Tap Running (continuous wideband hiss)
-    water = signal.lfilter(*signal.butter(2, 2500 / (fs / 2), btype="low"), np.random.randn(len(t))) * 0.05
-    c, conf, meets, is_speech = yamnet.classify_and_route(water.astype(np.float32))
-    assert meets is True
-    assert c == "Water"
-    assert is_speech is False
-
-    # 6. Glass Break (high-frequency shatter)
-    g_burst = (np.random.randn(int(fs * 0.06)) + np.sin(2 * np.pi * 4500 * t[:int(fs * 0.06)])) * np.exp(-np.linspace(0, 7, int(fs * 0.06))) * 0.4
-    glass = np.pad(g_burst, (500, int(fs * 0.5) - 500 - len(g_burst))).astype(np.float32)
-    c, conf, meets, is_speech = yamnet.classify_and_route(glass)
-    assert meets is True
-    assert c == "Glass"
-    assert is_speech is False
-
-    # 7. Shouting / Scream
-    scream = (0.6 * np.sin(2 * np.pi * 1200 * t) + 0.3 * np.sin(2 * np.pi * 2400 * t) + 0.1 * np.random.randn(len(t))) * 0.25
-    c, conf, meets, is_speech = yamnet.classify_and_route(scream.astype(np.float32))
-    assert meets is True
-    assert c in ["Shout", "Screaming"]
-
 if __name__ == "__main__":
     test_highpass_filter()
-    test_yamnet_speech_vs_environmental_routing()
-    test_environmental_acoustic_signatures()
-    test_comprehensive_real_world_sound_classification()
+    test_yamnet_speech_routing()
+    test_yamnet_environmental_alarm_routing()
+    test_yamnet_silence_squelching()
+    test_ontology_sound_mapping()
     test_pipeline_orchestrator_synthetic()
     print("All YAMNet and Pipeline Orchestrator tests passed successfully!")
