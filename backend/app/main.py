@@ -3,7 +3,8 @@ FastAPI Application Entry Point for SoundSense.
 Mounts WebSocket audio stream router, CORS, and REST health endpoints.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 import os
@@ -17,6 +18,16 @@ app = FastAPI(
     description="Real-time assistive system for deaf and hard-of-hearing individuals.",
     version="1.0.0"
 )
+
+# Auto-redirect 0.0.0.0 to localhost so browsers recognize Secure Context for microphone
+@app.middleware("http")
+async def redirect_zero_ip_middleware(request: Request, call_next):
+    host = request.headers.get("host", "")
+    if host.startswith("0.0.0.0"):
+        new_host = host.replace("0.0.0.0", "localhost", 1)
+        url = request.url.replace(netloc=new_host)
+        return RedirectResponse(url=str(url), status_code=307)
+    return await call_next(request)
 
 # Enable CORS for frontend development
 app.add_middleware(

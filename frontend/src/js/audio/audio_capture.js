@@ -31,10 +31,14 @@ export class AudioCaptureService {
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (window.location.hostname === "0.0.0.0") {
+          window.location.replace(window.location.href.replace("//0.0.0.0", "//localhost"));
+          return false;
+        }
         throw new Error(
-          "Microphone access requires a Secure Context (HTTPS or localhost). " +
-          "When accessing from your phone, either use an HTTPS tunnel (e.g. cloudflared/localtunnel) " +
-          "or on Android Chrome enable chrome://flags/#unsafely-treat-insecure-origin-as-secure."
+          "Microphone access is restricted by modern browsers to Secure Contexts.\n\n" +
+          "• If on this PC: Open http://localhost:8000 (do not use 0.0.0.0:8000).\n" +
+          "• If on phone over Wi-Fi: Run 'npx localtunnel --port 8000' for instant HTTPS."
         );
       }
 

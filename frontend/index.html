@@ -6,6 +6,13 @@
   <title>AURA — Assistive Sound Radar & Spatial Awareness</title>
   <meta name="description" content="AURA: Assistive sound awareness application for deaf and hard-of-hearing individuals with 360° sound localization, threat evaluation, and emergency assistance." />
 
+  <!-- Secure Context Auto-Redirect for Web Audio Microphone API -->
+  <script>
+    if (window.location.hostname === "0.0.0.0") {
+      window.location.replace(window.location.href.replace("//0.0.0.0", "//localhost"));
+    }
+  </script>
+
   <!-- Typography: Google Fonts (Fraunces & Plus Jakarta Sans) with local fallback -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
