@@ -27,6 +27,13 @@ class AppState {
       rms: 0.0,
       dbSpl: 42.0,                     // Matches initial Stitch badge (42 dB)
 
+      // Dynamic Microphone System State (1-Mic Mono, 2-Mic Dual, 3-Mic Planar Array)
+      micCount: 1,
+      micMode: "1_mic_mono",
+      micModeLabel: "1 Mic (Mono Omnidirectional)",
+      availableMicsCount: 1,
+      micDeviceName: "System Audio Input",
+
       // Threat & Danger Engine State
       dangerScore: 82.0,
       dangerLevel: "DANGER",           // "SAFE" | "AWARE" | "CAUTION" | "DANGER"
@@ -411,12 +418,19 @@ class AppState {
       relHeading = "AHEAD OF YOU";
     }
 
-    // Update Compass State
+    // Update Compass State with Mic Array Mode
+    const micCount = event.mic_count || this.state.micCount || 1;
+    const micMode = event.mic_mode || this.state.micMode || "1_mic_mono";
+    const micModeLabel = event.mic_mode_label || this.state.micModeLabel || "1 Mic (Mono Omnidirectional)";
+
     const updatedCompass = {
       angle_deg: navAngle,
-      compass_zone: zone,
+      compass_zone: displayZone,
       relative_heading: relHeading,
       sub_heading: subHeading,
+      mic_count: micCount,
+      mic_mode: micMode,
+      mic_mode_label: micModeLabel,
       estimated_distance: db > 80 ? "3–5 meters" : db > 65 ? "8–12 meters" : "15–20 meters",
       line_of_sight: "Indoor Line-of-Sight"
     };
@@ -479,7 +493,10 @@ class AppState {
       recentSounds: newRecent,
       history: newHistory,
       criticalAlert: newCriticalAlert,
-      dbSpl: db
+      dbSpl: db,
+      micCount: micCount,
+      micMode: micMode,
+      micModeLabel: micModeLabel
     });
   }
 

@@ -83,7 +83,10 @@ export class SoundSenseWebSocketClient {
       appState.set({
         audioState: msg.state,
         rms: msg.rms,
-        dbSpl: msg.db_spl
+        dbSpl: msg.db_spl,
+        micCount: msg.mic_count || appState.get().micCount || 1,
+        micMode: msg.mic_mode || appState.get().micMode || "1_mic_mono",
+        micModeLabel: msg.mic_mode_label || appState.get().micModeLabel || "1 Mic (Mono Omni)"
       });
     } else if (type === "sound_event") {
       appState.set({
@@ -156,7 +159,7 @@ export class SoundSenseWebSocketClient {
     });
   }
 
-  sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text, isRear = false) {
+  sendSyntheticTrigger(soundClass, delaySamples, dbSpl, confidence, text, isRear = false, micCount = 2, targetAngleDeg = null) {
     this.send({
       type: "synthetic_trigger",
       sound_class: soundClass,
@@ -164,7 +167,9 @@ export class SoundSenseWebSocketClient {
       db_spl: dbSpl,
       confidence,
       text,
-      is_rear: isRear
+      is_rear: isRear,
+      mic_count: micCount,
+      target_angle_deg: targetAngleDeg
     });
   }
 

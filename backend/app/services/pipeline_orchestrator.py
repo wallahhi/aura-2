@@ -15,7 +15,13 @@ from app.config import settings
 from app.services.audio_preprocessor import AudioPreprocessor
 from app.services.yamnet_service import YAMNetService
 from app.services.whisper_service import WhisperService
-from app.core.gcc_phat import compute_gcc_phat, simulate_stereo_delay, detect_rear_hemisphere
+from app.core.gcc_phat import (
+    compute_gcc_phat,
+    simulate_stereo_delay,
+    detect_rear_hemisphere,
+    compute_3mic_doa,
+    simulate_3mic_delay
+)
 from app.core.danger_service import DangerEngine, DangerState
 from app.core.sound_ontology import get_sound_info
 from app.api.websocket.protocol import (
@@ -82,20 +88,64 @@ class PipelineOrchestrator:
         now = time.time()
         events_to_emit = []
 
-        # 1. Decode PCM
-        left, right = self.preprocessor.decode_pcm_bytes(b64_data, channels=channels)
-        if right is None:
-            # Mono audio: duplicate to right channel
-            right = left.copy()
-            
-        # 2. Apply 80 Hz High-Pass Filter to both channels
-        left_hp = self.preprocessor.apply_highpass_filter(left, fs)
-        right_hp = self.preprocessor.apply_highpass_filter(right, fs)
-        mono_mix = 0.5 * (left_hp + right_hp)
+        # 1. Decode PCM (supports 1, 2, or 3 channels)
+        ch1, ch2, ch3 = self.preprocessor.decode_pcm_bytes(b64_data, channels=channels)
 
-        # Append to rolling ring buffer for stable YAMNet and Whisper processing
-        self.audio_buffer_left.extend(left_hp)
-        self.audio_buffer_right.extend(right_hp)
+        # Detect mic array configuration and compute high-pass audio
+        if ch3 is not None and channels >= 3:
+            mic_count = 3
+            mic_mode = "3_mic_planar"
+            mic_mode_label = "3-Mic Array (Smartwatch Planar)"
+            m1_hp = self.preprocessor.apply_highpass_filter(ch1, fs)
+            m2_hp = self.preprocessor.apply_highpass_filter(ch2, fs)
+            m3_hp = self.preprocessor.apply_highpass_filter(ch3, fs)
+            mono_mix = (m1_hp + m2_hp + m3_hp) / 3.0
+            
+            self.audio_buffer_left.extend(m1_hp)
+            self.audio_buffer_right.extend(m2_hp)
+            
+            # Compute 3-Mic Planar Array DOA (360° unambiguous)
+            tau, angle_deg, gcc_conf, zone, metrics = compute_3mic_doa(
+                m1_hp, m2_hp, m3_hp, fs=fs, d=0.03, c=self.speed_of_sound
+            )
+            is_distinct = zone != "OMNI"
+            
+        elif ch2 is not None and channels == 2:
+            left_hp = self.preprocessor.apply_highpass_filter(ch1, fs)
+            right_hp = self.preprocessor.apply_highpass_filter(ch2, fs)
+            mono_mix = 0.5 * (left_hp + right_hp)
+            
+            self.audio_buffer_left.extend(left_hp)
+            self.audio_buffer_right.extend(right_hp)
+            
+            channel_diff = float(np.max(np.abs(left_hp - right_hp)))
+            is_distinct = channel_diff > 1e-4
+            
+            if is_distinct:
+                mic_count = 2
+                mic_mode = "2_mic_dual"
+                mic_mode_label = "2-Mic System (Dual Stereo Array)"
+                is_rear = detect_rear_hemisphere(left_hp, right_hp, fs=fs)
+                tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
+                    left_hp, right_hp, fs=fs, d=self.mic_spacing_m, c=self.speed_of_sound, is_rear=is_rear
+                )
+            else:
+                # Built-in mono mic duplicated to stereo
+                mic_count = 1
+                mic_mode = "1_mic_mono"
+                mic_mode_label = "1-Mic System (Mono Omni)"
+                tau, angle_deg, gcc_conf, zone = 0.0, 0.0, 1.0, "OMNI"
+        else:
+            mic_count = 1
+            mic_mode = "1_mic_mono"
+            mic_mode_label = "1-Mic System (Mono Omni)"
+            mono_hp = self.preprocessor.apply_highpass_filter(ch1, fs)
+            mono_mix = mono_hp
+            self.audio_buffer_left.extend(mono_hp)
+            self.audio_buffer_right.extend(mono_hp)
+            is_distinct = False
+            tau, angle_deg, gcc_conf, zone = 0.0, 0.0, 1.0, "OMNI"
+
         buffered_mono = 0.5 * (np.array(self.audio_buffer_left, dtype=np.float32) + np.array(self.audio_buffer_right, dtype=np.float32))
 
         # 3. Compute Frame RMS & dB SPL
@@ -114,7 +164,10 @@ class PipelineOrchestrator:
             state=self.current_state,
             rms=round(rms, 4),
             db_spl=round(db_spl, 1),
-            timestamp=now
+            timestamp=now,
+            mic_count=mic_count,
+            mic_mode=mic_mode,
+            mic_mode_label=mic_mode_label
         )
         events_to_emit.append(status_msg.model_dump(by_alias=True))
 
@@ -149,22 +202,6 @@ class PipelineOrchestrator:
                     self._last_danger_emit_time = now
                     events_to_emit.append(self._format_danger_update(danger_state, now))
                 return events_to_emit
-
-        # Compute GCC-PHAT spatial direction across channels
-        channel_diff = float(np.max(np.abs(left_hp - right_hp))) if right_hp is not None else 0.0
-        is_distinct = channel_diff > 1e-4
-        is_rear = detect_rear_hemisphere(left_hp, right_hp, fs=fs) if is_distinct else False
-
-        tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
-            left_hp,
-            right_hp,
-            fs=fs,
-            d=self.mic_spacing_m,
-            c=self.speed_of_sound,
-            is_rear=is_rear
-        )
-        if not is_distinct:
-            zone = "OMNI"
 
         # === BRANCH A: HUMAN SPEECH ===
         if is_speech:
@@ -203,27 +240,11 @@ class PipelineOrchestrator:
             return events_to_emit
 
         # === BRANCH B: ENVIRONMENTAL SOUNDS & SPATIAL LOCALIZATION ===
-        # 1. GCC-PHAT TDOA on Left & Right channels
-        channel_diff = float(np.max(np.abs(left_hp - right_hp))) if right_hp is not None else 0.0
-        is_distinct = channel_diff > 1e-4
-        is_rear = detect_rear_hemisphere(left_hp, right_hp, fs=fs) if is_distinct else False
-
-        tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
-            left_hp,
-            right_hp,
-            fs=fs,
-            d=self.mic_spacing_m,
-            c=self.speed_of_sound,
-            is_rear=is_rear
-        )
-        if not is_distinct:
-            zone = "OMNI"
-
-        # 2. Danger Assessment with Cooldown & Hysteresis
+        # 1. Danger Assessment with Cooldown & Hysteresis
         danger_state, is_new_alert = self.danger_engine.evaluate(top_class, confidence, db_spl)
         sound_info = get_sound_info(top_class)
 
-        # 3. Emit Sound Event if cooldown passed, sound direction shifted, or periodic refresh during active sound
+        # 2. Emit Sound Event if cooldown passed, sound direction shifted, or periodic refresh during active sound
         is_angle_shift = is_distinct and (abs(angle_deg - self._last_emitted_angle) >= 15.0) and (db_spl >= 50.0)
         is_refresh = (now - self._last_sound_emit_time) >= 1.0 and (db_spl >= 52.0)
 
@@ -240,14 +261,17 @@ class PipelineOrchestrator:
                 tdoa_tau_s=round(tau, 6),
                 db_spl=round(db_spl, 1),
                 haptic_pattern=sound_info.haptic_pattern,
-                timestamp=now
+                timestamp=now,
+                mic_count=mic_count,
+                mic_mode=mic_mode,
+                mic_mode_label=mic_mode_label
             )
             events_to_emit.append(sound_msg.model_dump(by_alias=True))
 
-        # 4. Emit Danger Update
+        # 3. Emit Danger Update
         events_to_emit.append(self._format_danger_update(danger_state, now))
 
-        # 5. Check if SOS Auto-Trigger occurred
+        # 4. Check if SOS Auto-Trigger occurred
         if danger_state.sos_auto_triggered:
             sos_msg = SosAutoTriggerMessage(
                 reason="danger_sustained",
@@ -266,11 +290,12 @@ class PipelineOrchestrator:
         db_spl: float,
         confidence: float,
         text: Optional[str] = None,
-        is_rear: bool = False
+        is_rear: bool = False,
+        mic_count: int = 2,
+        target_angle_deg: Optional[float] = None
     ) -> List[Dict[str, Any]]:
         """
-        Simulator endpoint: generates synthetic delay and processes through the pipeline.
-        Enables testing directional angles, transcription, and danger alerts without multi-mic hardware.
+        Simulator endpoint: supports 1-Mic (Mono Omni), 2-Mic (Dual Stereo), and 3-Mic (Planar Smartwatch Array).
         """
         now = time.time()
         events_to_emit = []
@@ -296,13 +321,31 @@ class PipelineOrchestrator:
         center_freq = 1000.0 if "siren" in sound_class.lower() else 800.0
         mono = (np.sin(2 * np.pi * center_freq * t) * np.hanning(n_samples)).astype(np.float32)
 
-        # Apply synthetic delay
-        left, right = simulate_stereo_delay(mono, delay_samples)
-
-        # Compute GCC-PHAT on synthetic stereo
-        tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
-            left, right, fs=fs, d=self.mic_spacing_m, c=self.speed_of_sound, is_rear=is_rear
-        )
+        # Process based on mic_count
+        if mic_count == 3:
+            # 3-Mic Equilateral Planar Smartwatch Array (d = 30 mm)
+            target = target_angle_deg if target_angle_deg is not None else (195.0 if is_rear else 45.0)
+            m1, m2, m3 = simulate_3mic_delay(mono, target, fs=fs, d=0.03, c=self.speed_of_sound)
+            tau, angle_deg, gcc_conf, zone, metrics = compute_3mic_doa(
+                m1, m2, m3, fs=fs, d=0.03, c=self.speed_of_sound
+            )
+            mic_mode = "3_mic_planar"
+            mic_mode_label = "3-Mic Array (Smartwatch Planar)"
+        elif mic_count == 2:
+            # 2-Mic Dual Stereo Array (d = 14 cm)
+            left, right = simulate_stereo_delay(mono, delay_samples)
+            tau, angle_deg, gcc_conf, zone = compute_gcc_phat(
+                left, right, fs=fs, d=self.mic_spacing_m, c=self.speed_of_sound, is_rear=is_rear
+            )
+            mic_mode = "2_mic_dual"
+            mic_mode_label = "2-Mic System (Dual Stereo Array)"
+        else:
+            # 1-Mic Single Channel (Mono Omni)
+            tau = 0.0
+            angle_deg = 0.0
+            zone = "OMNI"
+            mic_mode = "1_mic_mono"
+            mic_mode_label = "1-Mic System (Mono Omni)"
 
         # Evaluate Danger Engine
         danger_state, is_new_alert = self.danger_engine.evaluate(sound_class, confidence, db_spl)
@@ -319,7 +362,10 @@ class PipelineOrchestrator:
             tdoa_tau_s=round(tau, 6),
             db_spl=round(db_spl, 1),
             haptic_pattern=sound_info.haptic_pattern,
-            timestamp=now
+            timestamp=now,
+            mic_count=mic_count,
+            mic_mode=mic_mode,
+            mic_mode_label=mic_mode_label
         )
         events_to_emit.append(sound_msg.model_dump(by_alias=True))
 

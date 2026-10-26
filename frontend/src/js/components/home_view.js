@@ -51,9 +51,13 @@ export function initHomeView(container, audioCapture, wsClient) {
           <span class="dot ${isPaused ? 'green' : 'red'}" id="radar-mic-dot"></span>
           <span id="radar-mic-text">${isPaused ? 'Microphone Standby' : 'Microphone Active · Noise Reduction On'}</span>
         </div>
+        <div class="status-badge-pill mic-system-pill mode-${initialState.micCount || 1}" id="radar-mic-system-badge">
+          <span>🎙</span>
+          <span id="radar-mic-system-text">${initialState.micCount || 1} Mic (${initialState.micCount === 3 ? '3-Mic Smartwatch' : initialState.micCount === 2 ? 'Dual Stereo' : 'Mono Omni'})</span>
+        </div>
         <div class="status-badge-pill" id="radar-haptics-pill">
           <span>🔊</span>
-          <span id="radar-haptics-text">Haptics: ${initialState.settings?.vibrationForce || 'Strong'} · Flash: ${initialState.settings?.screenFlash ? 'On' : 'Off'}</span>
+          <span id="radar-haptics-text">Haptics: ${initialState.settings?.vibrationForce || 'Strong'}</span>
         </div>
       </div>
       <div class="proto-info-banner">
@@ -80,9 +84,9 @@ export function initHomeView(container, audioCapture, wsClient) {
         </div>
 
         <div class="visualizer-subpills">
-          <div class="radar-subpill">
-            <span>🎛</span>
-            <span>Built-in Mic Array...</span>
+          <div class="radar-subpill" id="radar-subpill-mic-hardware">
+            <span>🎙</span>
+            <span id="radar-subpill-mic-hw">${initialState.micDeviceName || 'System Mic'} (${initialState.micCount || 1} Mic Active)</span>
           </div>
           <div class="radar-subpill">
             <span>📳</span>
@@ -134,7 +138,7 @@ export function initHomeView(container, audioCapture, wsClient) {
             <span style="color: var(--brand-teal);">🧭</span>
             <span>Directional Compass</span>
           </div>
-          <span class="compass-subtitle-tag">Multi-Mic Arrival Delay</span>
+          <span class="compass-subtitle-tag" id="compass-mic-tag">${initialState.micCount === 3 ? '3-Mic Planar Smartwatch Array (360°)' : initialState.micCount === 2 ? 'Dual-Mic TDOA Array (14cm)' : 'Single-Mic Omnidirectional Mode'}</span>
         </div>
 
         <div class="compass-dial-container">
@@ -263,6 +267,28 @@ export function initHomeView(container, audioCapture, wsClient) {
     if (dot) dot.className = `dot ${isPaused ? 'green' : 'red'}`;
     if (micText) micText.textContent = isPaused ? 'Microphone Standby' : 'Microphone Active · Noise Reduction On';
     if (bannerText) bannerText.textContent = isPaused ? 'Illustrative Prototype · Simulated Audio Sensor Data' : 'Live Real-Time Spatial Audio Ingestion Active';
+
+    // 1b. Microphone system mode badge & hardware pill
+    const micBadge = container.querySelector("#radar-mic-system-badge");
+    const micBadgeText = container.querySelector("#radar-mic-system-text");
+    const micHwText = container.querySelector("#radar-subpill-mic-hw");
+    const compassMicTag = container.querySelector("#compass-mic-tag");
+    const micCount = state.micCount || 1;
+
+    if (micBadge && micBadgeText) {
+      micBadge.className = `status-badge-pill mic-system-pill mode-${micCount}`;
+      micBadgeText.textContent = `${micCount} Mic${micCount > 1 ? 's' : ''} (${micCount === 3 ? '3-Mic Smartwatch' : micCount === 2 ? 'Dual Stereo' : 'Mono Omni'})`;
+    }
+    if (micHwText) {
+      micHwText.textContent = `${state.micDeviceName || 'System Mic'} (${micCount} Mic Active)`;
+    }
+    if (compassMicTag) {
+      compassMicTag.textContent = micCount === 3
+        ? '3-Mic Planar Smartwatch Array (360°)'
+        : micCount === 2
+          ? 'Dual-Mic TDOA Array (14cm)'
+          : 'Single-Mic Omnidirectional Mode';
+    }
 
     // 2. Live dB readout
     const dbVal = container.querySelector("#live-db-val");

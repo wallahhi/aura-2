@@ -21,21 +21,26 @@ class AudioPreprocessor:
         self,
         b64_data: str,
         channels: int = 2
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
         """
         Decodes base64-encoded 16-bit little-endian PCM into normalized float32 arrays [-1.0, 1.0].
-        If channels == 2, separates interleaved Left and Right channels.
+        Returns (ch1, ch2, ch3). If mono, ch2 and ch3 are None. If stereo, ch3 is None.
         """
         raw_bytes = base64.b64decode(b64_data)
         int16_samples = np.frombuffer(raw_bytes, dtype=np.int16)
         float_samples = int16_samples.astype(np.float32) / 32768.0
         
-        if channels == 2:
+        if channels == 3:
+            m1 = float_samples[0::3]
+            m2 = float_samples[1::3]
+            m3 = float_samples[2::3]
+            return m1, m2, m3
+        elif channels == 2:
             left = float_samples[0::2]
             right = float_samples[1::2]
-            return left, right
+            return left, right, None
         else:
-            return float_samples, None
+            return float_samples, None, None
 
     def apply_highpass_filter(self, audio: np.ndarray, fs: int) -> np.ndarray:
         """Applies 80 Hz high-pass Butterworth filter."""

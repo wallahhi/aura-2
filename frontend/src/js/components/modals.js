@@ -13,6 +13,7 @@ import { appState } from "../state.js";
 export function initModals(mountContainer, wsClient, audioCapture) {
   let sosInterval = null;
   let isMounted = false;
+  let selectedSimMic = 3;
 
   function mountSkeleton() {
     mountContainer.innerHTML = `
@@ -91,24 +92,39 @@ export function initModals(mountContainer, wsClient, audioCapture) {
         </div>
 
         <div class="simulator-content-body">
+          <!-- Acoustic Mic System Selector -->
+          <div style="margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 5px;">
+              Select Active Acoustic System:
+            </div>
+            <div class="sim-mode-toggle-group">
+              <button class="sim-mode-btn" data-mic="1" id="sim-btn-mode-1" type="button">🎙 1-Mic (Mono)</button>
+              <button class="sim-mode-btn" data-mic="2" id="sim-btn-mode-2" type="button">🎙 2-Mic (Dual)</button>
+              <button class="sim-mode-btn active" data-mic="3" id="sim-btn-mode-3" type="button">🎙 3-Mic (Smartwatch)</button>
+            </div>
+            <div style="font-size: 10.5px; color: var(--brand-teal); font-weight: 600;" id="sim-mode-desc">
+              ● 3-Mic Planar Smartwatch Array (30mm) · Full 360° Planar Resolving
+            </div>
+          </div>
+
           <div style="font-size: 11px; color: var(--text-secondary);">
-            Inject synthetic multi-microphone acoustic triggers into the pipeline:
+            Inject synthetic acoustic triggers into the pipeline:
           </div>
 
           <div class="sim-btn-grid">
-            <button class="sim-btn danger-sim" data-sound="Fire alarm" data-delay="5" data-db="88" data-conf="0.94" data-rear="true" type="button">
+            <button class="sim-btn danger-sim" data-sound="Fire alarm" data-delay="5" data-angle="195" data-db="88" data-conf="0.94" data-rear="true" type="button">
               🔥 Fire Alarm (195° SSW)
             </button>
-            <button class="sim-btn" data-sound="Car horn" data-delay="-14" data-db="84" data-conf="0.92" data-rear="false" type="button">
+            <button class="sim-btn" data-sound="Car horn" data-delay="-14" data-angle="45" data-db="84" data-conf="0.92" data-rear="false" type="button">
               🚗 Car Horn (45° NE · Right)
             </button>
-            <button class="sim-btn" data-sound="Dog" data-delay="14" data-db="72" data-conf="0.88" data-rear="false" type="button">
+            <button class="sim-btn" data-sound="Dog" data-delay="14" data-angle="315" data-db="72" data-conf="0.88" data-rear="false" type="button">
               🐕 Dog Bark (315° NW · Left)
             </button>
-            <button class="sim-btn" data-sound="Doorbell" data-delay="0" data-db="65" data-conf="0.90" data-rear="false" type="button">
+            <button class="sim-btn" data-sound="Doorbell" data-delay="0" data-angle="0" data-db="65" data-conf="0.90" data-rear="false" type="button">
               🚪 Doorbell (0° N · Ahead)
             </button>
-            <button class="sim-btn" data-sound="Siren" data-delay="14" data-db="92" data-conf="0.96" data-rear="true" type="button">
+            <button class="sim-btn" data-sound="Siren" data-delay="14" data-angle="225" data-db="92" data-conf="0.96" data-rear="true" type="button">
               🚨 Siren (225° SW · Behind)
             </button>
             <button class="sim-btn" data-speech="Hello! Can you hear me clearly? We are heading out now." type="button">
@@ -173,23 +189,55 @@ export function initModals(mountContainer, wsClient, audioCapture) {
       });
     }
 
+    // Bind Mic Mode Selection (1-Mic Mono, 2-Mic Dual, 3-Mic Smartwatch)
+    mountContainer.querySelectorAll(".sim-mode-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        mountContainer.querySelectorAll(".sim-mode-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedSimMic = parseInt(btn.getAttribute("data-mic") || "3", 10);
+
+        const descEl = mountContainer.querySelector("#sim-mode-desc");
+        if (descEl) {
+          if (selectedSimMic === 3) {
+            descEl.textContent = "● 3-Mic Planar Smartwatch Array (30mm) · Full 360° Planar Resolving";
+            descEl.style.color = "var(--brand-teal)";
+          } else if (selectedSimMic === 2) {
+            descEl.textContent = "● 2-Mic Dual Stereo Array (14cm) · Inter-Aural Delay + Diffraction";
+            descEl.style.color = "#C05621";
+          } else {
+            descEl.textContent = "● 1-Mic Single Channel (Mono) · 360° Ambient Omnidirectional (No Bias)";
+            descEl.style.color = "var(--text-secondary)";
+          }
+        }
+
+        // Immediately update reactive app state so badges on Home screen update
+        appState.set({
+          micCount: selectedSimMic,
+          micMode: selectedSimMic === 3 ? "3_mic_planar" : selectedSimMic === 2 ? "2_mic_dual" : "1_mic_mono",
+          micModeLabel: selectedSimMic === 3 ? "3 Mics (Planar Smartwatch Array)" : selectedSimMic === 2 ? "2 Mics (Dual Stereo Array)" : "1 Mic (Mono Omnidirectional)"
+        });
+      });
+    });
+
     // Bind Synthetic Sound Trigger Buttons
     mountContainer.querySelectorAll(".sim-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         const speech = btn.getAttribute("data-speech");
         if (speech) {
-          wsClient.sendSyntheticTrigger("Speech", 0, 68.0, 0.95, speech, false);
+          wsClient.sendSyntheticTrigger("Speech", 0, 68.0, 0.95, speech, false, selectedSimMic);
           return;
         }
 
         const sound = btn.getAttribute("data-sound");
         const delay = parseInt(btn.getAttribute("data-delay") || "0", 10);
+        const targetAngle = parseFloat(btn.getAttribute("data-angle") || "0");
         const db = parseFloat(btn.getAttribute("data-db") || "75.0");
         const conf = parseFloat(btn.getAttribute("data-conf") || "0.88");
         const isRear = btn.getAttribute("data-rear") === "true";
 
-        wsClient.sendSyntheticTrigger(sound, delay, db, conf, null, isRear);
+        wsClient.sendSyntheticTrigger(sound, delay, db, conf, null, isRear, selectedSimMic, targetAngle);
       });
     });
 

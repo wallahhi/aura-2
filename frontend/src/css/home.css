@@ -734,3 +734,33 @@
 .sos-open-btn:hover {
   background-color: #FDD5D5;
 }
+
+/* Dynamic Mic System Badges */
+.mic-system-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.mic-system-pill.mode-1 {
+  background-color: rgba(29, 116, 117, 0.08);
+  color: var(--brand-teal);
+  border: 1px solid rgba(29, 116, 117, 0.25);
+}
+
+.mic-system-pill.mode-2 {
+  background-color: rgba(249, 115, 22, 0.1);
+  color: #C05621;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.mic-system-pill.mode-3 {
+  background-color: rgba(197, 34, 31, 0.1);
+  color: #C5221F;
+  border: 1px solid rgba(197, 34, 31, 0.35);
+}
