@@ -83,7 +83,7 @@ class YAMNetService:
             return "Silence", 0.95
 
         rms = float(np.sqrt(np.mean(audio ** 2)))
-        if rms < 0.0025:
+        if rms < 0.0075:
             return "Silence", 0.95
 
         n_samples = len(audio)
@@ -208,32 +208,32 @@ class YAMNetService:
             if rms > 0.08: s += 0.15
         scores["Siren"] = s
 
-        # 5. Knock: low-frequency percussive impulse (must be burst: sub_rms_ratio > 1.8)
+        # 5. Knock: low-frequency percussive impulse (sub_low dominant, centroid < 800)
         s = 0.0
-        if centroid < 900 and sub_low_band > 0.35 and sub_rms_ratio > 1.8:
-            s += 0.25
+        if centroid < 800 and sub_low_band > 0.45 and sub_rms_ratio > 1.8:
+            s += 0.35
             if crest_factor > 3.0: s += 0.25
             if sub_rms_ratio > 2.0: s += 0.20
             if zcr < 0.16: s += 0.15
-            if flatness < 0.05: s += 0.15
+            if peak_freq < 350: s += 0.15
         scores["Knock"] = s
 
-        # 6. Clapping / Applause: broadband percussive impulse (centroid < 3500 Hz, unlike glass)
+        # 6. Clapping / Applause: broadband percussive impulse (centroid >= 750, sub_low < 0.35)
         s = 0.0
-        if crest_factor > 3.5 and centroid < 3500 and sub_rms_ratio > 1.8:
+        if crest_factor > 3.5 and 750 <= centroid < 3500 and sub_low_band < 0.35 and sub_rms_ratio > 1.8:
             if crest_factor > 10.0: s += 0.40
             elif crest_factor > 5.0: s += 0.25
             else: s += 0.15
             if flatness > 0.04: s += 0.25
             elif flatness > 0.02: s += 0.15
             if sub_rms_ratio > 2.0: s += 0.20
-            if 750 <= centroid <= 3000: s += 0.25
+            if 900 <= centroid <= 3000: s += 0.25
             if (high_band + ultra_high_band) < 0.65: s += 0.15
         scores["Clapping"] = s
 
-        # 7. Doorbell: resonant chime 600-2400 Hz with sharp attack and long decay
+        # 7. Doorbell: resonant chime 600-2400 Hz (no voice fundamental in sub_low_band)
         s = 0.0
-        if 600 <= peak_freq <= 2400 and (sub_rms_ratio > 1.8 or sub_rms_std > 0.30):
+        if 600 <= peak_freq <= 2400 and (sub_rms_ratio > 1.8 or sub_rms_std > 0.30) and sub_low_band < 0.12:
             s += 0.35
             if tonality > 20.0: s += 0.30
             elif tonality > 8.0: s += 0.15
@@ -243,9 +243,9 @@ class YAMNetService:
             if 2.5 <= crest_factor <= 6.0: s += 0.15
         scores["Doorbell"] = s
 
-        # 8. Dog Bark: mid-range percussive bark burst (MUST be burst: sub_rms_ratio > 1.8)
+        # 8. Dog Bark: mid-range percussive bark burst (MUST be loud bark burst, NOT speech or pure tone)
         s = 0.0
-        if 300 <= peak_freq <= 1200 and sub_rms_ratio > 1.8:
+        if 300 <= peak_freq <= 1200 and sub_rms_ratio > 1.8 and rms > 0.035 and tonality < 70.0 and flatness > 0.005:
             s += 0.20
             if low_mid_band > 0.30: s += 0.20
             if 2.8 <= crest_factor <= 10.0: s += 0.20
@@ -275,16 +275,17 @@ class YAMNetService:
             if crest_factor < 2.5: s += 0.15
         scores["Car horn"] = s
 
-        # 11. Human Speech: formant structure, non-pure tone, moderate crest
+        # 11. Human Speech: formant structure, non-pure tone, moderate crest, MUST have speech loudness
         s = 0.0
+        is_quiet_noise = (rms < 0.010)
         is_continuous_noise = (flatness > 0.035 and sub_rms_ratio < 1.6 and sub_rms_std < 0.25)
         is_impulse = (crest_factor > 6.5)
-        is_chime = (sub_rms_ratio > 1.8 and flatness < 0.005 and tonality > 80.0)
+        is_chime = (sub_rms_ratio > 1.8 and flatness < 0.005 and tonality > 80.0 and sub_low_band < 0.12)
         is_single_whistle = (flatness < 0.005 and tonality > 80.0 and speech_bands < 2)
         is_continuous_siren = (rms > 0.10 and flatness < 0.015 and crest_factor < 2.5 and speech_bands < 2)
         is_screaming = (rms > 0.13 and centroid > 1200 and flatness >= 0.010)
 
-        if is_continuous_noise or is_impulse or is_chime or is_single_whistle or is_continuous_siren or is_screaming:
+        if is_quiet_noise or is_continuous_noise or is_impulse or is_chime or is_single_whistle or is_continuous_siren or is_screaming:
             s = 0.0
         else:
             speech_band = low_mid_band + mid_band

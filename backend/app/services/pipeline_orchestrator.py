@@ -172,7 +172,7 @@ class PipelineOrchestrator:
         events_to_emit.append(status_msg.model_dump(by_alias=True))
 
         # If audio is quiet and in idle state, do not trigger heavy inference
-        if rms < 0.005 and self.current_state == "16kHz_idle":
+        if rms < 0.008 and self.current_state == "16kHz_idle":
             return events_to_emit
 
         # 4. Resample mono to 16 kHz if necessary for YAMNet
@@ -185,6 +185,14 @@ class PipelineOrchestrator:
 
         # 5. YAMNet Classification & Branch Routing
         top_class, confidence, meets_threshold, is_speech = self.yamnet.classify_and_route(audio_16k)
+
+        # Silence / ambient background: do not emit sound event or trigger alerts
+        if top_class == "Silence":
+            danger_state, _ = self.danger_engine.evaluate("Traffic noise, roadway noise", 0.30, db_spl)
+            if not hasattr(self, "_last_danger_emit_time") or (now - self._last_danger_emit_time) >= 2.0:
+                self._last_danger_emit_time = now
+                events_to_emit.append(self._format_danger_update(danger_state, now))
+            return events_to_emit
 
         # If confidence is below threshold, but there is an active acoustic surge (db_spl >= 50 dB),
         # treat as an active acoustic event so the user gets real-time spatial directional feedback.
