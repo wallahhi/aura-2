@@ -502,13 +502,15 @@ class AppState {
 
   _getIconForClass(className = "") {
     const c = className.toLowerCase();
-    if (c.includes("alarm") || c.includes("siren") || c.includes("smoke")) return "alarm";
-    if (c.includes("bell") || c.includes("ring")) return "doorbell";
+    if (c.includes("alarm") || c.includes("siren") || c.includes("smoke") || c.includes("fire")) return "alarm";
+    if (c.includes("doorbell") || c.includes("bell") || c.includes("ring") || c.includes("chime")) return "doorbell";
     if (c.includes("dog") || c.includes("bark")) return "paw";
-    if (c.includes("water") || c.includes("liquid")) return "water";
-    if (c.includes("horn") || c.includes("vehicle") || c.includes("car")) return "car";
-    if (c.includes("speech") || c.includes("talk") || c.includes("human")) return "speech";
+    if (c.includes("water") || c.includes("liquid") || c.includes("pour")) return "water";
+    if (c.includes("horn") || c.includes("vehicle") || c.includes("car") || c.includes("traffic")) return "car";
+    if (c.includes("speech") || c.includes("talk") || c.includes("human") || c.includes("voice") || c.includes("conversation") || c.includes("shout")) return "speech";
     if (c.includes("knock")) return "knock";
+    if (c.includes("clap") || c.includes("applause") || c.includes("snap")) return "clap";
+    if (c.includes("whistle")) return "whistle";
     return "wave";
   }
 

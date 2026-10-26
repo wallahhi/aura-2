@@ -78,12 +78,18 @@ ONTOLOGY_MAP: Dict[str, SoundCategoryInfo] = {
     "Telephone": SoundCategoryInfo("Telephone", "Telephone Ringing", Priority.P2, 35.0, haptic_pattern="1_short"),
     "Ringtone": SoundCategoryInfo("Ringtone", "Phone Ringtone", Priority.P2, 35.0, haptic_pattern="1_short"),
     "Baby cry, infant cry": SoundCategoryInfo("Baby cry, infant cry", "Baby Crying", Priority.P2, 55.0, haptic_pattern="2_medium"),
+    "Clapping": SoundCategoryInfo("Clapping", "Applause / Clapping", Priority.P2, 35.0, haptic_pattern="1_short"),
+    "Applause": SoundCategoryInfo("Applause", "Applause / Clapping", Priority.P2, 35.0, haptic_pattern="1_short"),
+    "Whistle": SoundCategoryInfo("Whistle", "Whistle Sound", Priority.P2, 45.0, haptic_pattern="1_short"),
+    "Sudden sound": SoundCategoryInfo("Sudden sound", "Sudden Acoustic Impulse", Priority.P2, 50.0, haptic_pattern="2_medium"),
     
     # --- P3: INFO / SPEECH / AMBIENT (S_type = 5.0 - 25.0) ---
     "Speech": SoundCategoryInfo("Speech", "Human Speech", Priority.P3, 15.0, is_speech=True, haptic_pattern="gentle_tap"),
     "Conversation": SoundCategoryInfo("Conversation", "Conversation", Priority.P3, 15.0, is_speech=True, haptic_pattern="gentle_tap"),
     "Whispering": SoundCategoryInfo("Whispering", "Whispering", Priority.P3, 10.0, is_speech=True, haptic_pattern="gentle_tap"),
     "Footsteps": SoundCategoryInfo("Footsteps", "Footsteps", Priority.P3, 20.0, haptic_pattern="gentle_tap"),
+    "Water": SoundCategoryInfo("Water", "Water Running", Priority.P3, 15.0, haptic_pattern="gentle_tap"),
+    "Ambient acoustic surge": SoundCategoryInfo("Ambient acoustic surge", "Acoustic Surge", Priority.P3, 20.0, haptic_pattern="gentle_tap"),
     "Traffic noise, roadway noise": SoundCategoryInfo("Traffic noise, roadway noise", "Traffic Ambience", Priority.P3, 25.0, haptic_pattern="gentle_tap"),
     "Vehicle": SoundCategoryInfo("Vehicle", "Passing Vehicle", Priority.P3, 25.0, haptic_pattern="gentle_tap"),
     "Music": SoundCategoryInfo("Music", "Background Music", Priority.P3, 10.0, haptic_pattern="gentle_tap"),

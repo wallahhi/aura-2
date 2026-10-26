@@ -231,7 +231,7 @@ export class AudioCaptureService {
     appState.set({
       audioState: rms >= threshold ? "48kHz_active" : "16kHz_idle",
       rms: Math.round(rms * 1000) / 1000,
-      dbSpl: Math.round(db_spl)
+      dbSpl: Math.round(dbSpl)
     });
 
     // 2. Accumulate samples to build ~250ms chunks (avoids network packet saturation)

@@ -34,12 +34,22 @@ export function initHomeView(container, audioCapture, wsClient) {
         return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="9" rx="2"></rect><path d="M5 11l2-6h10l2 6"></path><circle cx="7.5" cy="16.5" r="1.5"></circle><circle cx="16.5" cy="16.5" r="1.5"></circle></svg>`;
       case "speech":
         return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+      case "knock":
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5"></path><path d="M14 10V4a2 2 0 0 0-4 0v7"></path><path d="M10 10.5V6a2 2 0 0 0-4 0v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>`;
+      case "clap":
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
+      case "whistle":
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="14" cy="14" r="7"></circle><path d="M14 7V3h-4v4"></path><path d="M2 10h5l3 4"></path></svg>`;
+      case "timer":
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
       default:
         return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
     }
   }
 
   function mountSkeleton(initialState) {
+    lastRecentSoundsJson = "";
+    lastCriticalAlertId = null;
     const isPaused = !initialState.isListening;
     const compass = initialState.compass || {};
     const dangerLevel = initialState.dangerLevel || "SAFE";
@@ -477,7 +487,7 @@ export function initHomeView(container, audioCapture, wsClient) {
     visualizerAnimId = requestAnimationFrame(updateBars);
   }
 
-  // Subscribe to Application State
+  // Subscribe to Application State (mounts skeleton on first invocation and maintains reactive updates)
   appState.subscribe(state => {
     if (state.currentTab === "home") {
       if (!isMounted) {
@@ -486,8 +496,4 @@ export function initHomeView(container, audioCapture, wsClient) {
       updateDynamicFields(state);
     }
   });
-
-  // Initial mount
-  mountSkeleton(appState.get());
-  updateDynamicFields(appState.get());
 }

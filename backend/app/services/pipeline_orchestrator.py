@@ -220,7 +220,9 @@ class PipelineOrchestrator:
             events_to_emit.append(self._format_danger_update(danger_state, now))
 
             # Display speaker direction on compass if active voice/shout
-            if db_spl >= 50.0 and is_new_alert:
+            is_speech_refresh = (now - self._last_sound_emit_time) >= 1.5
+            if db_spl >= 44.0 and (is_new_alert or is_speech_refresh):
+                self._last_sound_emit_time = now
                 sound_info = get_sound_info(top_class)
                 display_name = "Human Speech" if "speech" in top_class.lower() else ("Loud Shout" if "shout" in top_class.lower() else sound_info.display_name)
                 sound_msg = SoundEventMessage(
@@ -233,7 +235,10 @@ class PipelineOrchestrator:
                     tdoa_tau_s=round(tau, 6),
                     db_spl=round(db_spl, 1),
                     haptic_pattern="gentle_tap" if sound_info.priority.value != "P0" else "3_strong",
-                    timestamp=now
+                    timestamp=now,
+                    mic_count=mic_count,
+                    mic_mode=mic_mode,
+                    mic_mode_label=mic_mode_label
                 )
                 events_to_emit.append(sound_msg.model_dump(by_alias=True))
 
@@ -245,8 +250,12 @@ class PipelineOrchestrator:
         sound_info = get_sound_info(top_class)
 
         # 2. Emit Sound Event if cooldown passed, sound direction shifted, or periodic refresh during active sound
-        is_angle_shift = is_distinct and (abs(angle_deg - self._last_emitted_angle) >= 15.0) and (db_spl >= 50.0)
-        is_refresh = (now - self._last_sound_emit_time) >= 1.0 and (db_spl >= 52.0)
+        is_angle_shift = is_distinct and (abs(angle_deg - self._last_emitted_angle) >= 15.0) and (db_spl >= 46.0)
+        is_refresh = (now - self._last_sound_emit_time) >= 1.0 and (db_spl >= 46.0)
+
+        # Suppress periodic refresh if class is just ambient traffic and not loud
+        if top_class == "Traffic noise, roadway noise" and db_spl < 58.0:
+            is_refresh = False
 
         if is_new_alert or is_angle_shift or is_refresh:
             self._last_emitted_angle = angle_deg
@@ -312,6 +321,24 @@ class PipelineOrchestrator:
             events_to_emit.append(trans_msg.model_dump())
             danger_state, _ = self.danger_engine.evaluate(sound_class, confidence, db_spl)
             events_to_emit.append(self._format_danger_update(danger_state, now))
+
+            target = target_angle_deg if target_angle_deg is not None else 90.0
+            sound_msg = SoundEventMessage(
+                sound_class=sound_class,
+                display_name="Human Speech",
+                confidence=0.96,
+                priority="P3",
+                angle_deg=round(target, 1),
+                compass_zone="E" if target == 90.0 else "N",
+                tdoa_tau_s=0.0,
+                db_spl=round(db_spl, 1),
+                haptic_pattern="gentle_tap",
+                timestamp=now,
+                mic_count=mic_count,
+                mic_mode="3_mic_planar" if mic_count == 3 else ("2_mic_dual" if mic_count == 2 else "1_mic_mono"),
+                mic_mode_label="3-Mic Smartwatch Array" if mic_count == 3 else ("2-Mic Dual Array" if mic_count == 2 else "1-Mic Mono Omni")
+            )
+            events_to_emit.append(sound_msg.model_dump(by_alias=True))
             return events_to_emit
 
         # Synthesize mono chirp/harmonic

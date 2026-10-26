@@ -128,7 +128,10 @@ def run_e2e_verification():
         assert speech_event["text"] == speech_text
         speech_danger = ws.receive_json()
         assert speech_danger["type"] == "danger_update"
-        print(f"  [PASS] Branch A Speech transcription: \"{speech_event['text']}\"")
+        speech_sound = ws.receive_json()
+        assert speech_sound["type"] == "sound_event"
+        assert speech_sound["display_name"] == "Human Speech"
+        print(f"  [PASS] Branch A Speech transcription: \"{speech_event['text']}\" & SoundEvent emitted")
         # 3e. Test SOS Cancellation on the active SOS session
         ws.send_json({
             "type": "sos_action",
