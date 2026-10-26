@@ -1,0 +1,731 @@
+/* ==========================================================================
+   AURA HOME SCREEN STYLES (Screen 1 Stitch Design)
+   ========================================================================== */
+
+/* 1. Active Sound Radar Card */
+.sound-radar-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.radar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.radar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.radar-title-icon {
+  color: var(--brand-teal);
+  font-size: 19px;
+}
+
+/* Audio Visualizer Equalizer */
+.audio-visualizer-container {
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 64px;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.visualizer-bar {
+  flex: 1;
+  background-color: var(--brand-teal);
+  border-radius: var(--radius-xs);
+  min-height: 8px;
+  max-height: 50px;
+  transition: height 0.08s ease, background-color 0.15s ease;
+}
+
+.visualizer-bar.high {
+  background-color: #C5221F;
+}
+
+.visualizer-bar.medium {
+  background-color: #E65100;
+}
+
+.visualizer-subpills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.radar-subpill {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radar-pause-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: var(--bg-card-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.radar-pause-btn:hover {
+  background-color: var(--bg-subtle);
+}
+
+.radar-pause-btn.resuming {
+  background-color: var(--brand-teal-light);
+  color: var(--brand-teal);
+  border-color: var(--brand-teal);
+}
+
+/* 2. Threat Evaluation Card */
+.threat-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.threat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.threat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.threat-status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tier-safe-text);
+  transition: color var(--transition-fast);
+}
+
+.threat-status-badge.hazard-danger {
+  color: var(--tier-danger-text);
+}
+
+.threat-status-badge.hazard-caution {
+  color: var(--tier-caution-text);
+}
+
+.threat-status-badge.hazard-aware {
+  color: var(--tier-aware-text);
+}
+
+.threat-levels-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.threat-level-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+  cursor: default;
+}
+
+.threat-level-box .level-icon {
+  font-size: 16px;
+}
+
+/* Threat Level Active States */
+.threat-level-box.active-SAFE {
+  background-color: var(--tier-safe-bg);
+  color: var(--tier-safe-text);
+  border-color: var(--tier-safe-border);
+}
+
+.threat-level-box.active-AWARE {
+  background-color: var(--tier-aware-bg);
+  color: var(--tier-aware-text);
+  border-color: var(--tier-aware-border);
+}
+
+.threat-level-box.active-CAUTION {
+  background-color: var(--tier-caution-bg);
+  color: var(--tier-caution-text);
+  border-color: var(--tier-caution-border);
+}
+
+.threat-level-box.active-DANGER {
+  background-color: var(--tier-danger-active-bg);
+  color: var(--tier-danger-text);
+  border-color: var(--tier-danger-border);
+  box-shadow: 0 0 10px rgba(197, 34, 31, 0.15);
+  animation: pulseDanger 2s infinite;
+}
+
+@keyframes pulseDanger {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* 3. Critical Hazard Alert Card (Stitch design highlight) */
+.critical-alert-card {
+  background-color: var(--alert-critical-card);
+  border: 1px solid var(--alert-critical-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-alert);
+  animation: slideDownAlert 0.3s ease-out;
+}
+
+@keyframes slideDownAlert {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.critical-alert-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.critical-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background-color: var(--alert-critical-badge);
+  color: #FFFFFF;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.critical-time-ago {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--alert-critical-badge);
+}
+
+.critical-alert-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.critical-alert-icon-square {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background-color: var(--alert-critical-badge);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.critical-alert-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.critical-alert-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--alert-critical-badge);
+  line-height: 1.2;
+}
+
+.critical-alert-desc {
+  font-size: 13px;
+  color: #7A2828;
+  line-height: 1.35;
+}
+
+/* Origin Detail Box */
+.critical-origin-box {
+  background-color: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--alert-critical-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.origin-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.origin-icon {
+  color: var(--alert-critical-badge);
+  font-size: 18px;
+}
+
+.origin-text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.origin-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.origin-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.origin-conf-pill {
+  padding: 4px 8px;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.critical-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* 4. Directional Compass Card */
+.compass-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.compass-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.compass-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.compass-subtitle-tag {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  text-align: right;
+}
+
+/* The Radar Dial */
+.compass-dial-container {
+  position: relative;
+  width: 230px;
+  height: 230px;
+  margin: 10px auto;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFFFFF 0%, #F5F2ED 65%, #EBE5DC 100%);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Concentric Rings */
+.compass-ring-outer {
+  position: absolute;
+  width: 185px;
+  height: 185px;
+  border-radius: 50%;
+  border: 1px dashed rgba(160, 150, 140, 0.25);
+}
+
+.compass-ring-inner {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 1px solid rgba(160, 150, 140, 0.15);
+}
+
+/* Cardinal Points */
+.cardinal-label {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.cardinal-label.n { top: 8px; left: 50%; transform: translateX(-50%); }
+.cardinal-label.s { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.cardinal-label.e { right: 10px; top: 50%; transform: translateY(-50%); }
+.cardinal-label.w { left: 10px; top: 50%; transform: translateY(-50%); }
+
+/* Dynamic Directional Needle & Indicator */
+.compass-needle-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.compass-needle-line {
+  position: absolute;
+  bottom: 50%;
+  width: 3px;
+  height: 80px;
+  background: linear-gradient(to top, rgba(197, 34, 31, 0.2), #C5221F);
+  border-radius: 2px;
+  transform-origin: bottom center;
+}
+
+.compass-beacon-point {
+  position: absolute;
+  bottom: 16px;
+  width: 22px;
+  height: 22px;
+  background-color: #C5221F;
+  color: #FFFFFF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(197, 34, 31, 0.35);
+}
+
+/* Center Heading Pod */
+.compass-center-pod {
+  position: relative;
+  z-index: 5;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background-color: var(--bg-card);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px;
+}
+
+.pod-icon {
+  font-size: 16px;
+  color: #C5221F;
+}
+
+.pod-heading-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.pod-sub-angle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #C5221F;
+  margin-top: 1px;
+}
+
+/* Compass Distance Footer */
+.compass-distance-footer {
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.distance-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 5. Recent Sounds List Card */
+.recent-sounds-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recent-sounds-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.view-all-link {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--brand-teal);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+.recent-sounds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-sound-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-fast);
+}
+
+.recent-sound-item:hover {
+  background-color: var(--bg-subtle);
+}
+
+.sound-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sound-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.sound-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sound-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sound-item-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sound-tier-pill {
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sound-tier-pill.CAUTION {
+  background-color: #EFEFEF;
+  color: #555555;
+}
+
+.sound-tier-pill.NOTICE, .sound-tier-pill.AWARE {
+  background-color: #E8ECE9;
+  color: #445548;
+}
+
+.sound-tier-pill.INFO {
+  background-color: #E0F2F1;
+  color: #00695C;
+}
+
+.sound-tier-pill.CRITICAL, .sound-tier-pill.DANGER {
+  background-color: var(--alert-critical-card);
+  color: var(--alert-critical-badge);
+}
+
+.sound-item-submeta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.sound-item-arrow {
+  font-size: 15px;
+  color: var(--text-tertiary);
+}
+
+/* 6. SOS Emergency Assistance Card */
+.sos-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sos-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.sos-badge-square {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background-color: #FEE8E8;
+  color: #C5221F;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sos-card-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.sos-card-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sos-card-desc {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.sos-open-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #FEE8E8;
+  color: #C5221F;
+  border: 1px solid #FDCACA;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sos-open-btn:hover {
+  background-color: #FDD5D5;
+}

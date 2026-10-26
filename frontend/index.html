@@ -3,35 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SoundSense — Assistive Audio & Spatial Awareness</title>
-  <meta name="description" content="Real-time assistive system for deaf and hard-of-hearing individuals with spatial audio localization and safety evaluation." />
+  <title>AURA — Assistive Sound Radar & Spatial Awareness</title>
+  <meta name="description" content="AURA: Assistive sound awareness application for deaf and hard-of-hearing individuals with 360° sound localization, threat evaluation, and emergency assistance." />
 
-  <!-- Stylesheets -->
+  <!-- Typography: Google Fonts (Fraunces & Plus Jakarta Sans) with local fallback -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Application Stylesheets (Tokens, Views & Modals) -->
   <link rel="stylesheet" href="src/css/theme.css" />
-  <link rel="stylesheet" href="src/css/compass.css" />
-  <link rel="stylesheet" href="src/css/feed.css" />
+  <link rel="stylesheet" href="src/css/home.css" />
+  <link rel="stylesheet" href="src/css/history.css" />
+  <link rel="stylesheet" href="src/css/settings.css" />
+  <link rel="stylesheet" href="src/css/modals.css" />
 </head>
 <body>
-  <!-- Standalone Mobile Viewport Shell -->
+  <!-- Mobile Application Viewport Shell (Stitch Design Reference) -->
   <main id="app-container">
-    <!-- 1. Minimal Top Status Pill Header -->
-    <div id="top-status-mount"></div>
+    <!-- Top Persistent Header Bar -->
+    <header class="aura-header">
+      <!-- 1. OS Status Bar Simulation -->
+      <div class="aura-status-bar">
+        <span id="current-clock">9:41</span>
+        <div class="aura-status-icons">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+          <svg width="18" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="9" width="12" height="6" fill="currentColor"/><path d="M21 11v2" stroke="currentColor" stroke-width="2"/></svg>
+        </div>
+      </div>
 
-    <!-- 2. Center 360° Directional Compass & Sound Pill Badge -->
-    <div id="compass-mount"></div>
+      <!-- 2. Brand & Live Status Navigation Row -->
+      <div class="aura-nav-bar">
+        <div class="aura-brand">
+          <div class="aura-logo-icon">A</div>
+          <div class="aura-brand-text">
+            <span class="aura-brand-title">AURA</span>
+            <span class="aura-brand-subtitle" id="aura-header-subtitle">Sound Radar</span>
+          </div>
+        </div>
 
-    <!-- 3. Bottom Live Conversation Feed (Borderless Typography) -->
-    <div id="transcript-mount"></div>
+        <div class="aura-header-actions">
+          <div class="live-listening-pill" id="header-listening-pill">
+            <span class="live-pulse-dot"></span>
+            <span id="header-listening-text">LIVE LISTENING</span>
+          </div>
+          <button class="aura-icon-btn" title="Audio Sensitivity" id="btn-quick-settings">
+            <span>👂</span>
+          </button>
+          <button class="aura-icon-btn avatar-btn" title="User Profile" id="btn-avatar-profile">
+            <span>VG</span>
+          </button>
+        </div>
+      </div>
+    </header>
 
-    <!-- 4. Developer Simulator Drawer (Collapsible) -->
-    <div id="simulator-bar-mount"></div>
+    <!-- Main Scrollable Content Area -->
+    <div class="aura-main-scroll" id="main-scroll-view">
+      <!-- Screen 1: Home View -->
+      <div id="home-view" class="view-panel active"></div>
 
-    <!-- Slide-up Secondary Modals -->
-    <div id="settings-modal-mount"></div>
-    <div id="sos-modal-mount"></div>
+      <!-- Screen 3: History View -->
+      <div id="history-view" class="view-panel"></div>
+
+      <!-- Screen 2: Settings View -->
+      <div id="settings-view" class="view-panel"></div>
+    </div>
+
+    <!-- Fixed Bottom Navigation Bar (Stitch design: Home | History | Settings) -->
+    <nav class="aura-bottom-nav">
+      <button class="nav-tab-btn active" data-tab="home" id="tab-btn-home">
+        <span class="nav-tab-icon">🎯</span>
+        <span>Home</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="history" id="tab-btn-history">
+        <span class="nav-tab-icon">⏱</span>
+        <span>History</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="settings" id="tab-btn-settings">
+        <span class="nav-tab-icon">🎛</span>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Overlays & Modals Mount (SOS Emergency, Action Guide, Simulator) -->
+    <div id="modals-mount"></div>
   </main>
 
-  <!-- Application Entry Point -->
+  <!-- Application Bootstrap Entrypoint -->
   <script type="module" src="src/js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,470 @@
+/* ==========================================================================
+   AURA SETTINGS SCREEN STYLES (Screen 2 Stitch Design)
+   ========================================================================== */
+
+.settings-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-sys-pill {
+  align-self: flex-start;
+  padding: 4px 10px;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.settings-main-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Settings Section Header */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-section-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-teal);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Settings Card Container */
+.settings-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Setting Row Item */
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* Toggle Switches */
+.aura-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.aura-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.aura-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-subtle);
+  transition: 0.25s;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+}
+
+.aura-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #FFFFFF;
+  transition: 0.25s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+input:checked + .aura-slider {
+  background-color: var(--brand-teal);
+  border-color: var(--brand-teal);
+}
+
+input:checked + .aura-slider:before {
+  transform: translateX(20px);
+}
+
+input:disabled + .aura-slider {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Segmented Control Selectors (e.g. Subtle / Standard / Strobe Flash) */
+.segmented-control {
+  display: flex;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 4px;
+}
+
+.segment-btn {
+  flex: 1;
+  padding: 8px 6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.segment-btn:hover {
+  color: var(--text-primary);
+}
+
+.segment-btn.active {
+  background-color: #FFFFFF;
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.segment-btn.active.brand {
+  background-color: var(--brand-teal);
+  color: #FFFFFF;
+}
+
+/* Range Slider with Live dB Readout */
+.range-slider-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aura-range-input {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(to right, #007A78, #00ACC1);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.aura-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  border: 2px solid var(--brand-teal);
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.range-labels-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+/* Sound Alert Library Rows */
+.alert-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert-library-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alert-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alert-item-icon-square {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.alert-item-icon-square.critical {
+  background-color: #C5221F;
+  color: #FFFFFF;
+}
+
+.alert-item-icon-square.caution {
+  background-color: #FFF3E0;
+  color: #E65100;
+}
+
+.alert-item-icon-square.notice, .alert-item-icon-square.aware {
+  background-color: var(--bg-card-subtle);
+  color: var(--text-primary);
+}
+
+.alert-item-icon-square.muted {
+  background-color: var(--bg-subtle);
+  color: var(--text-tertiary);
+}
+
+/* Select Dropdown */
+.aura-select {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+/* Theme Selector Cards (Light Warm vs Dark OLED) */
+.theme-selector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.theme-card-option {
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  background-color: var(--bg-card-subtle);
+  transition: all var(--transition-fast);
+}
+
+.theme-card-option:hover {
+  border-color: var(--border-active);
+}
+
+.theme-card-option.active {
+  border-color: var(--brand-teal);
+  background-color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 122, 120, 0.1);
+}
+
+.theme-option-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.theme-option-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.theme-option-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* SOS Emergency Contacts List */
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contact-card-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.contact-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contact-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.contact-meta {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.contact-edit-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.add-contact-btn {
+  width: 100%;
+  padding: 11px;
+  background-color: var(--bg-card-subtle);
+  color: var(--brand-teal);
+  border: 1px dashed var(--brand-teal);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.add-contact-btn:hover {
+  background-color: var(--brand-teal-light);
+}
+
+/* Notice Warning Callout */
+.settings-notice-box {
+  background-color: #FFF8F8;
+  border: 1px solid #FDCACA;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 11.5px;
+  color: #7A2828;
+  line-height: 1.4;
+}
+
+.settings-footer-info {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 10px 0 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

@@ -1,0 +1,255 @@
+/* ==========================================================================
+   AURA MODALS, OVERLAYS & DEVELOPER SIMULATOR STYLES
+   ========================================================================== */
+
+/* 1. SOS Emergency 10-Second Modal Overlay */
+.aura-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.sos-modal-content {
+  width: 100%;
+  max-width: 390px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #FFF5F5 100%);
+  border: 2px solid #C5221F;
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  box-shadow: 0 15px 35px rgba(197, 34, 31, 0.35);
+  animation: scaleUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.sos-countdown-ring {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 5px solid #FEE8E8;
+  border-top-color: #C5221F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: spinRing 1s linear infinite;
+  margin-top: 6px;
+}
+
+@keyframes spinRing {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sos-countdown-number {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  color: #C5221F;
+  animation: none; /* Number stays upright */
+}
+
+.sos-modal-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: #C5221F;
+}
+
+.sos-modal-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.sos-cancel-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: #C5221F;
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(197, 34, 31, 0.3);
+  transition: all var(--transition-fast);
+}
+
+.sos-cancel-btn:hover {
+  background-color: #A71B18;
+}
+
+/* 2. Action Guide Modal (Evacuation & Safety Instructions) */
+.guide-modal-content {
+  width: 100%;
+  max-width: 400px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.guide-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guide-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: #C5221F;
+}
+
+.guide-step-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.guide-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: #C5221F;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guide-step-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* 3. Floating Developer Simulator Drawer (Collapsible) */
+.simulator-drawer {
+  position: fixed;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 440px;
+  z-index: 55;
+  background-color: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.simulator-drawer.collapsed {
+  transform: translateX(-50%) translateY(calc(100% - 38px));
+}
+
+.simulator-handle-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--bg-card-subtle);
+  cursor: pointer;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.simulator-pill-badge {
+  background-color: var(--brand-teal);
+  color: #FFFFFF;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+}
+
+.simulator-content-body {
+  padding: 14px 16px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.sim-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.sim-btn {
+  padding: 8px 6px;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.sim-btn:hover {
+  background-color: var(--brand-teal-light);
+  border-color: var(--brand-teal);
+  color: var(--brand-teal);
+}
+
+.sim-btn.danger-sim {
+  border-color: #FDCACA;
+  color: #C5221F;
+}
+
+.sim-btn.danger-sim:hover {
+  background-color: #FEE8E8;
+}
+
+.sim-row-mic {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-light);
+}
