@@ -61,6 +61,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                 is_rear = bool(msg.get("is_rear", False))
                 mic_count = int(msg.get("mic_count", 2))
                 target_angle_deg = msg.get("target_angle_deg")
+                bypass_cooldown = bool(msg.get("bypass_cooldown", True))
 
                 events = orchestrator.process_synthetic_trigger(
                     sound_class=sound_class,
@@ -70,7 +71,8 @@ async def websocket_audio_stream(websocket: WebSocket):
                     text=text,
                     is_rear=is_rear,
                     mic_count=mic_count,
-                    target_angle_deg=target_angle_deg
+                    target_angle_deg=target_angle_deg,
+                    bypass_cooldown=bypass_cooldown
                 )
                 for event in events:
                     await websocket.send_text(json.dumps(event))

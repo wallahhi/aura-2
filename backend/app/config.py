@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     HYSTERESIS_DELTA_PTS: float = 5.0    # Downward threshold delta (-5 pts)
     SOS_TRIGGER_THRESHOLD: float = 90.0  # Danger score to trigger SOS countdown
     SOS_SUSTAINED_SECONDS: float = 3.0   # Must sustain D >= 90 for 3 seconds
+
+    # Output Cooldown & Preemption Parameters
+    OUTPUT_COOLDOWN_SECONDS: float = 2.0 # Minimum cooldown interval between emitted sound events
+    AMPLITUDE_SURGE_RATIO: float = 1.5   # Ratio of amplitude increase (1.5x) to immediately break cooldown
     
     class Config:
         env_file = ".env"

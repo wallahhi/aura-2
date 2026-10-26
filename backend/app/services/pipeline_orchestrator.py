@@ -58,6 +58,91 @@ class PipelineOrchestrator:
         self.audio_buffer_left = deque(maxlen=48000)
         self.audio_buffer_right = deque(maxlen=48000)
 
+        # Output Cooldown & Preemption Architecture:
+        # Continuously classifies audio in the background, but applies a 2.0s cooldown
+        # for emitting sound event outputs to avoid UI flooding.
+        # Breaks the 2-second cooldown rule if:
+        # 1. Amplitude is very high (>= 1.5x previous emitted sound's amplitude)
+        # 2. Sound is of higher danger (higher priority tier P0 > P1 > P2 > P3, or higher severity)
+        self.output_cooldown_sec = getattr(settings, "OUTPUT_COOLDOWN_SECONDS", 2.0)
+        self.amplitude_surge_ratio = getattr(settings, "AMPLITUDE_SURGE_RATIO", 1.5)
+        self._last_output_time = 0.0
+        self._last_output_rms = 0.0
+        self._last_output_severity = 0.0
+        self._last_output_priority_rank = 0
+        self._last_output_danger_score = 0.0
+        self._last_output_class: Optional[str] = None
+
+    def _should_emit_sound_output(
+        self,
+        sound_class: str,
+        sound_info: Any,
+        rms: float,
+        danger_score: float,
+        now: float
+    ) -> Tuple[bool, str]:
+        """
+        Determines whether a sound event output should be displayed to the user.
+        Maintains a 2.0-second output cooldown while continuous classification
+        runs in the background.
+
+        Breaks the 2-second cooldown rule if:
+        1. Very high amplitude: current amplitude >= 1.5x previous emitted amplitude.
+        2. Higher danger: sound has higher priority tier (P0 > P1 > P2 > P3),
+           higher severity weight (s_type), or significant danger score escalation.
+        """
+        priority_val = getattr(sound_info.priority, "value", str(sound_info.priority))
+        PRIORITY_RANKS = {"P0": 4, "P1": 3, "P2": 2, "P3": 1}
+        current_rank = PRIORITY_RANKS.get(priority_val, 1)
+        current_severity = sound_info.s_type
+
+        time_since_last = now - self._last_output_time
+
+        # Condition 1: 2-second cooldown elapsed
+        if time_since_last >= self.output_cooldown_sec:
+            return True, "cooldown_elapsed"
+
+        # Condition 2: Preemption by Very High Amplitude (>= 1.5x previous emitted amplitude)
+        if self._last_output_rms > 0 and (rms >= self.amplitude_surge_ratio * self._last_output_rms):
+            return True, f"preempt_amplitude_surge ({rms:.4f} >= {self.amplitude_surge_ratio}x of {self._last_output_rms:.4f})"
+
+        # Condition 3: Preemption by Higher Danger:
+        # 3a. Higher priority tier (e.g. P0 over P1/P2/P3, or P1 over P2/P3)
+        if current_rank > self._last_output_priority_rank:
+            return True, f"preempt_higher_priority ({priority_val} > rank {self._last_output_priority_rank})"
+
+        # 3b. Higher baseline severity score
+        if current_severity > (self._last_output_severity + 5.0):
+            return True, f"preempt_higher_severity ({current_severity} > {self._last_output_severity})"
+
+        # 3c. Significant danger score escalation
+        if danger_score >= (self._last_output_danger_score + 15.0) and danger_score >= 50.0:
+            return True, f"preempt_danger_escalation ({danger_score:.1f} > {self._last_output_danger_score:.1f})"
+
+        # Cooldown remains active: throttle output
+        return False, "cooldown_active"
+
+    def _record_emitted_output(
+        self,
+        sound_class: str,
+        sound_info: Any,
+        rms: float,
+        angle_deg: float,
+        danger_score: float,
+        now: float
+    ):
+        """Records metadata of the newly emitted sound output event."""
+        priority_val = getattr(sound_info.priority, "value", str(sound_info.priority))
+        PRIORITY_RANKS = {"P0": 4, "P1": 3, "P2": 2, "P3": 1}
+        self._last_output_time = now
+        self._last_sound_emit_time = now
+        self._last_output_rms = rms
+        self._last_output_severity = sound_info.s_type
+        self._last_output_priority_rank = PRIORITY_RANKS.get(priority_val, 1)
+        self._last_output_danger_score = danger_score
+        self._last_output_class = sound_class
+        self._last_emitted_angle = angle_deg
+
     def set_config(
         self,
         rms_threshold: Optional[float] = None,
@@ -214,24 +299,25 @@ class PipelineOrchestrator:
         # === BRANCH A: HUMAN SPEECH ===
         if is_speech:
             transcript = self.whisper.transcribe(audio_16k)
-            trans_msg = TranscriptionMessage(
-                text=transcript["text"],
-                speaker=transcript["speaker"],
-                confidence=transcript["confidence"],
-                is_final=transcript["is_final"],
-                timestamp=now
-            )
-            events_to_emit.append(trans_msg.model_dump())
+            if transcript.get("text"):
+                trans_msg = TranscriptionMessage(
+                    text=transcript["text"],
+                    speaker=transcript["speaker"],
+                    confidence=transcript["confidence"],
+                    is_final=transcript["is_final"],
+                    timestamp=now
+                )
+                events_to_emit.append(trans_msg.model_dump())
 
-            # Update danger engine with speech event
+            # Update danger engine in background with speech event
             danger_state, is_new_alert = self.danger_engine.evaluate(top_class, confidence, db_spl)
-            events_to_emit.append(self._format_danger_update(danger_state, now))
 
-            # Display speaker direction on compass if active voice/shout
-            is_speech_refresh = (now - self._last_sound_emit_time) >= 1.5
-            if db_spl >= 44.0 and (is_new_alert or is_speech_refresh):
-                self._last_sound_emit_time = now
-                sound_info = get_sound_info(top_class)
+            # Check output cooldown (2.0s cooldown, broken by 1.5x amplitude or higher danger)
+            sound_info = get_sound_info(top_class)
+            should_emit, reason = self._should_emit_sound_output(top_class, sound_info, rms, danger_state.score, now)
+
+            if should_emit and db_spl >= 44.0:
+                self._record_emitted_output(top_class, sound_info, rms, angle_deg, danger_state.score, now)
                 display_name = "Human Speech" if "speech" in top_class.lower() else ("Loud Shout" if "shout" in top_class.lower() else sound_info.display_name)
                 sound_msg = SoundEventMessage(
                     sound_class=top_class,
@@ -249,25 +335,25 @@ class PipelineOrchestrator:
                     mic_mode_label=mic_mode_label
                 )
                 events_to_emit.append(sound_msg.model_dump(by_alias=True))
+                events_to_emit.append(self._format_danger_update(danger_state, now))
+            else:
+                # Output throttled: periodic danger update
+                if not hasattr(self, "_last_danger_emit_time") or (now - self._last_danger_emit_time) >= 2.0:
+                    self._last_danger_emit_time = now
+                    events_to_emit.append(self._format_danger_update(danger_state, now))
 
             return events_to_emit
 
         # === BRANCH B: ENVIRONMENTAL SOUNDS & SPATIAL LOCALIZATION ===
-        # 1. Danger Assessment with Cooldown & Hysteresis
+        # 1. Danger Assessment in background (continuously computed on every chunk)
         danger_state, is_new_alert = self.danger_engine.evaluate(top_class, confidence, db_spl)
         sound_info = get_sound_info(top_class)
 
-        # 2. Emit Sound Event if cooldown passed, sound direction shifted, or periodic refresh during active sound
-        is_angle_shift = is_distinct and (abs(angle_deg - self._last_emitted_angle) >= 15.0) and (db_spl >= 46.0)
-        is_refresh = (now - self._last_sound_emit_time) >= 1.0 and (db_spl >= 46.0)
+        # 2. Check 2-second output cooldown (broken by 1.5x amplitude or higher danger)
+        should_emit, reason = self._should_emit_sound_output(top_class, sound_info, rms, danger_state.score, now)
 
-        # Suppress periodic refresh if class is just ambient traffic and not loud
-        if top_class == "Traffic noise, roadway noise" and db_spl < 58.0:
-            is_refresh = False
-
-        if is_new_alert or is_angle_shift or is_refresh:
-            self._last_emitted_angle = angle_deg
-            self._last_sound_emit_time = now
+        if should_emit:
+            self._record_emitted_output(top_class, sound_info, rms, angle_deg, danger_state.score, now)
             sound_msg = SoundEventMessage(
                 sound_class=top_class,
                 display_name=sound_info.display_name,
@@ -284,11 +370,14 @@ class PipelineOrchestrator:
                 mic_mode_label=mic_mode_label
             )
             events_to_emit.append(sound_msg.model_dump(by_alias=True))
+            events_to_emit.append(self._format_danger_update(danger_state, now))
+        else:
+            # Output throttled by cooldown: emit danger update periodically or on state transition
+            if is_new_alert or (not hasattr(self, "_last_danger_emit_time") or (now - self._last_danger_emit_time) >= 2.0):
+                self._last_danger_emit_time = now
+                events_to_emit.append(self._format_danger_update(danger_state, now))
 
-        # 3. Emit Danger Update
-        events_to_emit.append(self._format_danger_update(danger_state, now))
-
-        # 4. Check if SOS Auto-Trigger occurred
+        # 3. Check if SOS Auto-Trigger occurred
         if danger_state.sos_auto_triggered:
             sos_msg = SosAutoTriggerMessage(
                 reason="danger_sustained",
@@ -309,13 +398,15 @@ class PipelineOrchestrator:
         text: Optional[str] = None,
         is_rear: bool = False,
         mic_count: int = 2,
-        target_angle_deg: Optional[float] = None
+        target_angle_deg: Optional[float] = None,
+        bypass_cooldown: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Simulator endpoint: supports 1-Mic (Mono Omni), 2-Mic (Dual Stereo), and 3-Mic (Planar Smartwatch Array).
         """
         now = time.time()
         events_to_emit = []
+        sim_rms = 0.02 * (10 ** ((db_spl - 60) / 20))
 
         # If speech trigger with text -> Branch A
         if text or sound_class in ["Speech", "Conversation"]:
@@ -331,22 +422,30 @@ class PipelineOrchestrator:
             events_to_emit.append(self._format_danger_update(danger_state, now))
 
             target = target_angle_deg if target_angle_deg is not None else 90.0
-            sound_msg = SoundEventMessage(
-                sound_class=sound_class,
-                display_name="Human Speech",
-                confidence=0.96,
-                priority="P3",
-                angle_deg=round(target, 1),
-                compass_zone="E" if target == 90.0 else "N",
-                tdoa_tau_s=0.0,
-                db_spl=round(db_spl, 1),
-                haptic_pattern="gentle_tap",
-                timestamp=now,
-                mic_count=mic_count,
-                mic_mode="3_mic_planar" if mic_count == 3 else ("2_mic_dual" if mic_count == 2 else "1_mic_mono"),
-                mic_mode_label="3-Mic Smartwatch Array" if mic_count == 3 else ("2-Mic Dual Array" if mic_count == 2 else "1-Mic Mono Omni")
-            )
-            events_to_emit.append(sound_msg.model_dump(by_alias=True))
+            sound_info = get_sound_info(sound_class)
+
+            should_emit = True
+            if not bypass_cooldown:
+                should_emit, _ = self._should_emit_sound_output(sound_class, sound_info, sim_rms, danger_state.score, now)
+
+            if should_emit:
+                self._record_emitted_output(sound_class, sound_info, sim_rms, target, danger_state.score, now)
+                sound_msg = SoundEventMessage(
+                    sound_class=sound_class,
+                    display_name="Human Speech",
+                    confidence=0.96,
+                    priority="P3",
+                    angle_deg=round(target, 1),
+                    compass_zone="E" if target == 90.0 else "N",
+                    tdoa_tau_s=0.0,
+                    db_spl=round(db_spl, 1),
+                    haptic_pattern="gentle_tap",
+                    timestamp=now,
+                    mic_count=mic_count,
+                    mic_mode="3_mic_planar" if mic_count == 3 else ("2_mic_dual" if mic_count == 2 else "1_mic_mono"),
+                    mic_mode_label="3-Mic Smartwatch Array" if mic_count == 3 else ("2-Mic Dual Array" if mic_count == 2 else "1-Mic Mono Omni")
+                )
+                events_to_emit.append(sound_msg.model_dump(by_alias=True))
             return events_to_emit
 
         # Synthesize mono chirp/harmonic
@@ -386,23 +485,29 @@ class PipelineOrchestrator:
         danger_state, is_new_alert = self.danger_engine.evaluate(sound_class, confidence, db_spl)
         sound_info = get_sound_info(sound_class)
 
-        # Build Sound Event Message
-        sound_msg = SoundEventMessage(
-            sound_class=sound_class,
-            display_name=sound_info.display_name,
-            confidence=round(confidence, 2),
-            priority=sound_info.priority.value,
-            angle_deg=round(angle_deg, 1),
-            compass_zone=zone,
-            tdoa_tau_s=round(tau, 6),
-            db_spl=round(db_spl, 1),
-            haptic_pattern=sound_info.haptic_pattern,
-            timestamp=now,
-            mic_count=mic_count,
-            mic_mode=mic_mode,
-            mic_mode_label=mic_mode_label
-        )
-        events_to_emit.append(sound_msg.model_dump(by_alias=True))
+        should_emit = True
+        if not bypass_cooldown:
+            should_emit, _ = self._should_emit_sound_output(sound_class, sound_info, sim_rms, danger_state.score, now)
+
+        # Build Sound Event Message if cooldown passed or bypassed
+        if should_emit:
+            self._record_emitted_output(sound_class, sound_info, sim_rms, angle_deg, danger_state.score, now)
+            sound_msg = SoundEventMessage(
+                sound_class=sound_class,
+                display_name=sound_info.display_name,
+                confidence=round(confidence, 2),
+                priority=sound_info.priority.value,
+                angle_deg=round(angle_deg, 1),
+                compass_zone=zone,
+                tdoa_tau_s=round(tau, 6),
+                db_spl=round(db_spl, 1),
+                haptic_pattern=sound_info.haptic_pattern,
+                timestamp=now,
+                mic_count=mic_count,
+                mic_mode=mic_mode,
+                mic_mode_label=mic_mode_label
+            )
+            events_to_emit.append(sound_msg.model_dump(by_alias=True))
 
         # Build Danger Update Message
         events_to_emit.append(self._format_danger_update(danger_state, now))

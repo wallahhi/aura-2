@@ -153,6 +153,63 @@ def test_pipeline_orchestrator_synthetic():
     speech_evt = next(e for e in events_speech if e["type"] == "sound_event")
     assert speech_evt["display_name"] == "Human Speech"
 
+def test_output_cooldown_and_preemption():
+    """
+    Verify 2-second output cooldown architecture:
+    1. Output is throttled within 2 seconds for matching sound & amplitude.
+    2. Cooldown is broken immediately by 1.5x amplitude surge.
+    3. Cooldown is broken immediately by higher danger priority tier.
+    """
+    orchestrator = PipelineOrchestrator()
+    info_p2 = get_sound_info("Doorbell")       # P2 (rank 2, severity 45)
+    info_p3 = get_sound_info("Traffic noise, roadway noise")  # P3 (rank 1, severity 25)
+    info_p1 = get_sound_info("Car horn")       # P1 (rank 3, severity 75)
+    info_p0 = get_sound_info("Siren")          # P0 (rank 4, severity 100)
+
+    # 1. Initial output at t = 100.0s (emitted normally)
+    should, reason = orchestrator._should_emit_sound_output("Doorbell", info_p2, rms=0.020, danger_score=40.0, now=100.0)
+    assert should is True
+    assert reason == "cooldown_elapsed"
+    orchestrator._record_emitted_output("Doorbell", info_p2, rms=0.020, angle_deg=45.0, danger_score=40.0, now=100.0)
+
+    # 2. Same sound within 2s (t = 101.0s) with similar amplitude -> throttled by cooldown
+    should, reason = orchestrator._should_emit_sound_output("Doorbell", info_p2, rms=0.021, danger_score=40.0, now=101.0)
+    assert should is False
+    assert reason == "cooldown_active"
+
+    # 3. Lower danger sound (P3) within 2s -> throttled by cooldown
+    should, reason = orchestrator._should_emit_sound_output("Traffic noise, roadway noise", info_p3, rms=0.020, danger_score=25.0, now=101.5)
+    assert should is False
+    assert reason == "cooldown_active"
+
+    # 4. Break Rule 1: High amplitude (>= 1.5x of previous 0.020 -> rms 0.032) at t = 101.6s -> PREEMPTS COOLDOWN
+    should, reason = orchestrator._should_emit_sound_output("Doorbell", info_p2, rms=0.032, danger_score=45.0, now=101.6)
+    assert should is True
+    assert "preempt_amplitude_surge" in reason
+    orchestrator._record_emitted_output("Doorbell", info_p2, rms=0.032, angle_deg=45.0, danger_score=45.0, now=101.6)
+
+    # 5. Break Rule 2: Higher danger sound (P1 Car horn over P2 Doorbell) at t = 102.0s -> PREEMPTS COOLDOWN
+    should, reason = orchestrator._should_emit_sound_output("Car horn", info_p1, rms=0.025, danger_score=70.0, now=102.0)
+    assert should is True
+    assert "preempt_higher_priority" in reason
+    orchestrator._record_emitted_output("Car horn", info_p1, rms=0.025, angle_deg=60.0, danger_score=70.0, now=102.0)
+
+    # 6. Break Rule 2: Emergency (P0 Siren over P1 Car horn) at t = 102.5s -> PREEMPTS COOLDOWN
+    should, reason = orchestrator._should_emit_sound_output("Siren", info_p0, rms=0.030, danger_score=95.0, now=102.5)
+    assert should is True
+    assert "preempt_higher_priority" in reason
+    orchestrator._record_emitted_output("Siren", info_p0, rms=0.030, angle_deg=120.0, danger_score=95.0, now=102.5)
+
+    # 7. Same emergency sound within 2s at similar amplitude at t = 103.5s -> throttled
+    should, reason = orchestrator._should_emit_sound_output("Siren", info_p0, rms=0.030, danger_score=95.0, now=103.5)
+    assert should is False
+    assert reason == "cooldown_active"
+
+    # 8. Cooldown elapsed after 2.0s (t = 104.6s > 102.5 + 2.0) -> emitted normally
+    should, reason = orchestrator._should_emit_sound_output("Siren", info_p0, rms=0.030, danger_score=95.0, now=104.6)
+    assert should is True
+    assert reason == "cooldown_elapsed"
+
 if __name__ == "__main__":
     test_highpass_filter()
     test_yamnet_speech_routing()
@@ -160,4 +217,5 @@ if __name__ == "__main__":
     test_yamnet_silence_squelching()
     test_ontology_sound_mapping()
     test_pipeline_orchestrator_synthetic()
+    test_output_cooldown_and_preemption()
     print("All YAMNet and Pipeline Orchestrator tests passed successfully!")

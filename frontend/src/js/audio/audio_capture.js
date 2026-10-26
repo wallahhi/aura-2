@@ -75,35 +75,35 @@ export class AudioCaptureService {
 
       const hardwareInfo = await this.probeAudioHardware();
 
-      // First attempt: Request explicit un-processed Stereo (2 channels)
-      // This instructs mobile browsers (Android Chrome / iOS) to activate dual microphones
-      let stream = null;
+      // Request maximum available channels (up to 3 for smartwatch/array, fallback to 2 or 1)
+      const constraints = {
+        audio: {
+          channelCount: { ideal: 3, min: 1 },
+          sampleRate: this.targetSampleRate,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          googHighpassFilter: false,
+          googTypingNoiseDetection: false
+        }
+      };
+
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        console.warn("[AudioCapture] Ideal multi-channel constraints rejected, falling back to basic audio stream:", err);
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             channelCount: { ideal: 2 },
-            sampleRate: this.targetSampleRate,
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false
           }
         });
-      } catch (err1) {
-        console.warn("[AudioCapture] Stereo attempt 1 rejected, trying relaxed constraints:", err1);
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              channelCount: 2,
-              echoCancellation: false,
-              noiseSuppression: false
-            }
-          });
-        } catch (err2) {
-          console.warn("[AudioCapture] Stereo attempt 2 rejected, falling back to default mic:", err2);
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        }
       }
-      this.mediaStream = stream;
       
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       try {
@@ -140,9 +140,8 @@ export class AudioCaptureService {
       });
 
       // 4096 samples buffer (~85 ms at 48kHz)
-      // Allocate at least 2 input channels so that if the stream carries stereo, it is captured
-      const captureChannels = Math.max(2, this.channels);
-      this.processorNode = this.audioContext.createScriptProcessor(bufferSize, captureChannels, captureChannels);
+      const bufferSize = 4096;
+      this.processorNode = this.audioContext.createScriptProcessor(bufferSize, this.channels, this.channels);
 
       this.processorNode.onaudioprocess = (e) => {
         if (!this.isCapturing) return;
@@ -200,7 +199,7 @@ export class AudioCaptureService {
     const ch2 = numChannels >= 2 ? inputBuffer.getChannelData(1) : ch1;
     const ch3 = numChannels >= 3 ? inputBuffer.getChannelData(2) : ch1;
 
-    // Detect if multi-channel hardware is delivering discrete stereo vs identical mono
+    // Detect if multi-channel hardware is delivering identical duplicated mono
     if (numChannels >= 2) {
       let maxDiff = 0;
       for (let i = 0; i < len; i += 8) {
@@ -208,16 +207,7 @@ export class AudioCaptureService {
         if (d > maxDiff) maxDiff = d;
       }
       const curState = appState.get();
-      if (maxDiff > 1e-4) {
-        if (this.channels < 2) {
-          this.channels = 2;
-          appState.set({
-            micCount: 2,
-            micMode: "2_mic_dual",
-            micModeLabel: "2 Mics (Dual Stereo Array)"
-          });
-        }
-      } else if (curState.micCount > 1) {
+      if (maxDiff < 1e-4 && curState.micCount > 1) {
         // Identical channels = 1 physical mono mic present
         appState.set({
           micCount: 1,
