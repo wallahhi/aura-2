@@ -8,6 +8,12 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 import os
+import sys
+
+# Ensure backend directory is in sys.path so 'app' package is found regardless of execution path
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from app.config import settings
 from app.api.websocket.audio_stream import router as ws_router
@@ -73,4 +79,4 @@ if os.path.exists(frontend_dir):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True, app_dir=backend_dir)
