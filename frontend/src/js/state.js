@@ -362,24 +362,58 @@ class AppState {
       catType = "notice";
     }
 
+    // Determine navigation heading (0° = North, 90° = East, 180° = South, 270° = West)
+    const rawAngle = typeof event.angle_deg === "number" ? event.angle_deg : 90;
+    let navAngle = Math.round(rawAngle);
+    if (zone === "OMNI") {
+      navAngle = 0;
+    } else if (zone === "N" && Math.abs(rawAngle - 90) < 15) {
+      navAngle = 0;
+    } else if (zone === "E" && (Math.abs(rawAngle) < 25 || Math.abs(rawAngle - 360) < 25)) {
+      navAngle = 90;
+    } else if (zone === "W" && Math.abs(rawAngle - 180) < 25) {
+      navAngle = 270;
+    } else if (zone === "S" && Math.abs(rawAngle - 270) < 25) {
+      navAngle = 180;
+    } else if (zone === "NE" && Math.abs(rawAngle - 45) < 30) {
+      navAngle = 45;
+    } else if (zone === "NW" && Math.abs(rawAngle - 135) < 30) {
+      navAngle = 315;
+    } else if (zone === "SE" && Math.abs(rawAngle - 315) < 30) {
+      navAngle = 135;
+    } else if (zone === "SW" && Math.abs(rawAngle - 225) < 30) {
+      navAngle = 225;
+    } else if (zone === "SSW" || (rawAngle >= 190 && rawAngle <= 210)) {
+      navAngle = 195;
+    } else {
+      // General polar to navigation: (90 - theta) mod 360
+      navAngle = Math.round(((90 - rawAngle) % 360 + 360) % 360);
+    }
+
     // Determine relative heading description
     let relHeading = "AHEAD OF YOU";
-    if (angle >= 135 && angle <= 225) {
+    let subHeading = `${navAngle}° ${zone}`;
+    if (zone === "OMNI") {
+      relHeading = "OMNIDIRECTIONAL";
+      subHeading = "SURROUND SOUND";
+    } else if (navAngle >= 135 && navAngle <= 225) {
       relHeading = "BEHIND YOU";
-    } else if (angle > 45 && angle < 135) {
+    } else if (navAngle > 45 && navAngle < 135) {
       relHeading = "TO YOUR RIGHT";
-    } else if (angle > 225 && angle < 315) {
+    } else if (navAngle > 225 && navAngle < 315) {
       relHeading = "TO YOUR LEFT";
+    } else {
+      relHeading = "AHEAD OF YOU";
     }
 
     // Update Compass State
     const updatedCompass = {
-      angle_deg: angle,
+      angle_deg: navAngle,
       compass_zone: zone,
       relative_heading: relHeading,
-      sub_heading: `${angle}° ${zone}`,
+      sub_heading: subHeading,
       estimated_distance: db > 80 ? "3–5 meters" : db > 65 ? "8–12 meters" : "15–20 meters",
-      line_of_sight: "Line-of-Sight"
+      line_of_sight: "Indoor Line-of-Sight"
     };
 
     // Construct event item for History
@@ -392,7 +426,7 @@ class AppState {
       tier: tier,
       categoryType: catType,
       timestampStr: `${timeStr} · Sensor Detection`,
-      directionStr: `${angle}° ${zone}`,
+      directionStr: subHeading,
       dbStr: `${db} dB ${db > 80 ? 'High' : 'Moderate'}`,
       confStr: `${conf}%`,
       icon: this._getIconForClass(event.class || event.sound_class),
@@ -409,9 +443,9 @@ class AppState {
       display_name: event.display_name,
       tier: tier === "CRITICAL" ? "CRITICAL" : tier === "CAUTION" ? "CAUTION" : tier === "AWARE" ? "NOTICE" : "INFO",
       submeta: `Estimated ${updatedCompass.estimated_distance} · Just now`,
-      arrow: angle >= 90 && angle <= 270 ? "←" : "↗",
+      arrow: (navAngle > 180 && navAngle < 360) ? "←" : "↗",
       icon: this._getIconForClass(event.class || event.sound_class),
-      angle_deg: angle,
+      angle_deg: navAngle,
       db_spl: db
     };
     const newRecent = [recentItem, ...this.state.recentSounds].slice(0, 5);
@@ -422,11 +456,11 @@ class AppState {
       newCriticalAlert = {
         id: "alert-" + Date.now(),
         class_name: event.class || event.sound_class,
-        display_name: event.display_name + " Detected",
+        display_name: (event.display_name || event.class || "Hazard") + " Detected",
         description: `Urgent acoustic pattern detected with ${conf}% confidence.`,
         priority: event.priority,
-        relative_origin: `${relHeading.toLowerCase()} (${zone})`,
-        angle_deg: angle,
+        relative_origin: `${relHeading.toLowerCase()} (${subHeading})`,
+        angle_deg: navAngle,
         compass_zone: zone,
         confidence: event.confidence,
         db_spl: db,

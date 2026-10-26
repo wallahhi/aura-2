@@ -47,6 +47,8 @@ class PipelineOrchestrator:
         # State tracking
         self.current_state = "16kHz_idle"
         self.last_loud_time = 0.0
+        self._last_emitted_angle = 90.0
+        self._last_sound_emit_time = 0.0
         self.audio_buffer_left = deque(maxlen=48000)
         self.audio_buffer_right = deque(maxlen=48000)
 
@@ -131,11 +133,22 @@ class PipelineOrchestrator:
         # 5. YAMNet Classification & Branch Routing
         top_class, confidence, meets_threshold, is_speech = self.yamnet.classify_and_route(audio_16k)
 
-        # If confidence is below 70%, evaluate danger baseline but suppress active sound event
+        # If confidence is below threshold, but there is an active acoustic surge (db_spl >= 50 dB),
+        # treat as an active acoustic event so the user gets real-time spatial directional feedback.
         if not meets_threshold:
-            danger_state, _ = self.danger_engine.evaluate("Traffic noise, roadway noise", 0.50, db_spl)
-            events_to_emit.append(self._format_danger_update(danger_state, now))
-            return events_to_emit
+            if db_spl >= 50.0 or rms >= self.rms_threshold:
+                top_class = "Sudden sound" if db_spl >= 68.0 else "Ambient acoustic surge"
+                confidence = 0.72
+                meets_threshold = True
+                is_speech = False
+            else:
+                # Quiet ambient noise: only evaluate danger baseline periodically (avoid UI event flooding)
+                danger_state, _ = self.danger_engine.evaluate("Traffic noise, roadway noise", 0.30, db_spl)
+                # Only emit danger update if level changed or every 2 seconds
+                if not hasattr(self, "_last_danger_emit_time") or (now - self._last_danger_emit_time) >= 2.0:
+                    self._last_danger_emit_time = now
+                    events_to_emit.append(self._format_danger_update(danger_state, now))
+                return events_to_emit
 
         # Compute GCC-PHAT spatial direction across channels
         channel_diff = float(np.max(np.abs(left_hp - right_hp))) if right_hp is not None else 0.0
@@ -210,8 +223,13 @@ class PipelineOrchestrator:
         danger_state, is_new_alert = self.danger_engine.evaluate(top_class, confidence, db_spl)
         sound_info = get_sound_info(top_class)
 
-        # 3. Emit Sound Event if cooldown passed or surge detected
-        if is_new_alert:
+        # 3. Emit Sound Event if cooldown passed, sound direction shifted, or periodic refresh during active sound
+        is_angle_shift = is_distinct and (abs(angle_deg - self._last_emitted_angle) >= 15.0) and (db_spl >= 50.0)
+        is_refresh = (now - self._last_sound_emit_time) >= 1.0 and (db_spl >= 52.0)
+
+        if is_new_alert or is_angle_shift or is_refresh:
+            self._last_emitted_angle = angle_deg
+            self._last_sound_emit_time = now
             sound_msg = SoundEventMessage(
                 sound_class=top_class,
                 display_name=sound_info.display_name,
