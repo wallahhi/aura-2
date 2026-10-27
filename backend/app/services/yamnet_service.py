@@ -2,6 +2,7 @@
 YAMNet Environmental Sound Classifier & Branch Router.
 Evaluates 521 AudioSet classes using Google's official YAMNet deep neural network,
 and routes audio to Branch A (Speech / Whisper) or Branch B (Environmental / GCC-PHAT + Danger).
+Includes cross-hardware adaptive amplitude normalization for laptop microphones.
 """
 
 import os
@@ -37,30 +38,46 @@ class YAMNetService:
 
     def _init_model(self):
         """Loads official YAMNet model from local path or TensorFlow Hub."""
+        local_model_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../models/yamnet")
+        )
+        class_map_file = os.path.join(local_model_dir, "assets", "yamnet_class_map.csv")
+
+        # 1. Try loading directly via standard TensorFlow (SavedModel)
+        try:
+            import tensorflow as tf
+            if os.path.isdir(local_model_dir) and os.path.exists(os.path.join(local_model_dir, "saved_model.pb")):
+                print(f"[YAMNetService] Loading YAMNet directly via TensorFlow: {local_model_dir}")
+                self.model = tf.saved_model.load(local_model_dir)
+                if os.path.exists(class_map_file):
+                    with open(class_map_file, "r", encoding="utf-8") as f:
+                        reader = csv.reader(f)
+                        next(reader)
+                        self.class_names = [row[2] for row in reader]
+                    print(f"[YAMNetService] Successfully loaded offline YAMNet with {len(self.class_names)} classes.")
+                    return
+        except Exception as e_tf:
+            print(f"[YAMNetService] Standard tf.saved_model.load failed ({e_tf}), trying TFHub...")
+
+        # 2. Try loading via TensorFlow Hub
         try:
             import tensorflow_hub as hub
-
-            # Check local models directory first
-            local_model_dir = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "../models/yamnet")
-            )
-            if os.path.isdir(local_model_dir) and os.path.exists(os.path.join(local_model_dir, "saved_model.pb")):
-                logger.info(f"[YAMNetService] Loading YAMNet from local directory: {local_model_dir}")
+            if os.path.isdir(local_model_dir):
                 self.model = hub.load(local_model_dir)
             else:
-                logger.info("[YAMNetService] Loading YAMNet from TFHub...")
                 self.model = hub.load("https://tfhub.dev/google/yamnet/1")
 
-            # Load the 521 AudioSet class map with standard CSV parsing
             class_map_path = self.model.class_map_path().numpy().decode("utf-8")
             with open(class_map_path, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
-                next(reader)  # Skip header (index,mid,display_name)
+                next(reader)
                 self.class_names = [row[2] for row in reader]
 
-            print(f"[YAMNetService] Successfully loaded official YAMNet with {len(self.class_names)} AudioSet classes.")
-        except Exception as e:
-            print(f"[YAMNetService] Error initializing YAMNet model ({e}). Using minimal safety fallback.")
+            print(f"[YAMNetService] Loaded official TFHub YAMNet with {len(self.class_names)} classes.")
+            return
+        except Exception as e_hub:
+            print(f"[YAMNetService] WARNING: Could not load YAMNet deep neural network ({e_hub}).")
+            print("[YAMNetService] Please ensure 'tensorflow' is installed: pip install tensorflow tensorflow-hub")
             self.model = None
             self.class_names = [
                 "Speech", "Siren", "Vehicle horn, car horn, honking", "Fire alarm",
@@ -75,6 +92,8 @@ class YAMNetService:
     ) -> Tuple[str, float, bool, bool]:
         """
         Runs sound classification on 16 kHz mono audio chunk.
+        Applies adaptive amplitude normalization so laptop microphones with
+        lower hardware gain are evaluated with identical acoustic precision.
 
         Returns:
             top_class: Identified sound class name
@@ -85,18 +104,28 @@ class YAMNetService:
         if len(audio_16k_mono) == 0:
             return "Silence", 1.0, True, False
 
-        # Energy gate: silence or idle mic noise floor squelched immediately
+        # Energy gate: low noise floor squelched immediately
         rms = float(np.sqrt(np.mean(audio_16k_mono ** 2)))
-        if rms < 0.0075:
+        if rms < 0.0020:
             return "Silence", 0.95, True, False
 
         if self.model is None:
-            # Fallback if model failed to load
-            top_class = "Speech" if rms >= 0.03 else "Silence"
+            # Fallback if TensorFlow could not be initialized
+            top_class = "Speech" if rms >= 0.015 else "Silence"
             return top_class, 0.50, True, is_speech_category(top_class)
 
-        # Run official YAMNet deep neural network
-        scores, embeddings, spectrogram = self.model(audio_16k_mono)
+        # Cross-hardware Adaptive Gain Normalization:
+        # Laptops have vastly different mic gains (Mac vs Realtek/Windows/Linux).
+        # We normalize active signals to peak ~0.45 so YAMNet receives optimal log-mel energy.
+        peak = float(np.max(np.abs(audio_16k_mono)))
+        if peak > 1e-4:
+            gain_multiplier = min(20.0, 0.45 / peak)
+            normalized_audio = (audio_16k_mono * gain_multiplier).astype(np.float32)
+        else:
+            normalized_audio = audio_16k_mono
+
+        # Run official YAMNet inference
+        scores, embeddings, spectrogram = self.model(normalized_audio)
         mean_scores = np.mean(scores.numpy(), axis=0)
 
         # Inspect top prediction candidates

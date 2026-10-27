@@ -257,7 +257,7 @@ class PipelineOrchestrator:
         events_to_emit.append(status_msg.model_dump(by_alias=True))
 
         # If audio is quiet and in idle state, do not trigger heavy inference
-        if rms < 0.008 and self.current_state == "16kHz_idle":
+        if rms < 0.0020 and self.current_state == "16kHz_idle":
             return events_to_emit
 
         # 4. Resample mono to 16 kHz if necessary for YAMNet
